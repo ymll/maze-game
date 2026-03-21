@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Trace Maze</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+    
+    <!-- Manifest Data URI for Installation -->
+    <link rel="manifest" href="data:application/manifest+json, %7B%22name%22%3A%22Neon%20Trace%20Maze%22%2C%22short_name%22%3A%22Maze%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f172a%22%2C%22theme_color%22%3A%22%230f172a%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F1611%2F1611175.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%22%7D%5D%7D">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            touch-action: none;
+            overflow: hidden;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        canvas {
+            touch-action: none;
+            cursor: crosshair;
+            display: block;
+            margin: 0 auto;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.2);
+        }
+        .ui-overlay {
+            pointer-events: none;
+        }
+        .ui-overlay button, .ui-overlay .pointer-auto {
+            pointer-events: auto;
+        }
+        .glow-text {
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+        }
+        #message-box {
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <!-- Game Header -->
+    <div class="w-full max-w-md flex justify-between items-center mb-4 px-2">
+        <div>
+            <h1 class="text-2xl font-bold glow-text text-sky-400">Level <span id="level-display">1</span></h1>
+            <p class="text-xs text-slate-400 uppercase tracking-widest">Trace the path to the exit</p>
+        </div>
+        <div class="text-right">
+            <div class="text-sm font-semibold text-slate-300">High Score: <span id="high-score">1</span></div>
+        </div>
+    </div>
+
+    <!-- Canvas Container -->
+    <div class="relative bg-slate-800/50 p-1 rounded-2xl border border-slate-700">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- Win/Start Overlays -->
+        <div id="overlay" class="absolute inset-0 flex items-center justify-center bg-slate-900/80 rounded-xl hidden ui-overlay">
+            <div class="text-center p-8">
+                <h2 id="overlay-title" class="text-4xl font-black mb-4 text-white">LEVEL COMPLETE!</h2>
+                <p id="overlay-msg" class="text-slate-300 mb-6">You've mastered this maze.</p>
+                <button id="next-btn" class="pointer-auto bg-sky-500 hover:bg-sky-400 text-white font-bold py-3 px-8 rounded-full shadow-lg shadow-sky-500/20 transition-all active:scale-95">
+                    NEXT LEVEL
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls/Footer -->
+    <div class="w-full max-w-md mt-6 flex justify-center gap-4">
+        <button id="reset-btn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-6 py-2 rounded-lg text-sm font-medium transition-colors">
+            Reset Level
+        </button>
+    </div>
+
+    <!-- Feedback Message -->
+    <div id="message-box" class="fixed bottom-10 left-1/2 -translate-x-1/2 opacity-0 pointer-events-none bg-rose-500/90 text-white px-4 py-2 rounded-full text-sm font-bold">
+        Wall collision! Try again.
+    </div>
+
+    <script>
+        // Service Worker registration for PWA installation
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = `self.addEventListener('fetch', (event) => { event.respondWith(fetch(event.request)); });`;
+                const blob = new Blob([swCode], { type: 'text/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                // Note: Real PWAs usually need a physical file, but this data-blob trick 
+                // helps browser detection for installation in many environments.
+                navigator.serviceWorker.register(swUrl).catch(() => {});
+            });
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const levelDisplay = document.getElementById('level-display');
+        const highScoreDisplay = document.getElementById('high-score');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlay-title');
+        const nextBtn = document.getElementById('next-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const messageBox = document.getElementById('message-box');
+
+        let level = 1;
+        let highScore = localStorage.getItem('mazeHighScore') || 1;
+        highScoreDisplay.textContent = highScore;
+
+        let mazeWidth, mazeHeight;
+        let cellSize;
+        let grid = [];
+        let stack = [];
+        let playerPath = [];
+        let isTracing = false;
+        let gameActive = true;
+        let startCell, endCell;
+
+        // Configuration
+        const COLORS = {
+            wall: '#334155',
+            path: '#0f172a',
+            player: '#38bdf8',
+            goal: '#4ade80',
+            start: '#818cf8',
+            trail: 'rgba(56, 189, 248, 0.4)'
+        };
+
+        class Cell {
+            constructor(r, c) {
+                this.r = r;
+                this.c = c;
+                this.walls = [true, true, true, true]; // Top, Right, Bottom, Left
+                this.visited = false;
+            }
+
+            draw() {
+                let x = this.c * cellSize;
+                let y = this.r * cellSize;
+                ctx.strokeStyle = COLORS.wall;
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+
+                if (this.walls[0]) drawLine(x, y, x + cellSize, y);
+                if (this.walls[1]) drawLine(x + cellSize, y, x + cellSize, y + cellSize);
+                if (this.walls[2]) drawLine(x + cellSize, y + cellSize, x, y + cellSize);
+                if (this.walls[3]) drawLine(x, y + cellSize, x, y);
+            }
+        }
+
+        function drawLine(x1, y1, x2, y2) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+
+        function initGame() {
+            const cols = Math.min(5 + level, 25);
+            const rows = Math.min(5 + level, 35);
+            
+            const padding = 40;
+            const availableWidth = Math.min(window.innerWidth - padding, 500);
+            const availableHeight = Math.min(window.innerHeight - 200, 700);
+            
+            cellSize = Math.floor(Math.min(availableWidth / cols, availableHeight / rows));
+            canvas.width = cols * cellSize;
+            canvas.height = rows * cellSize;
+            
+            mazeWidth = cols;
+            mazeHeight = rows;
+
+            generateMaze();
+            playerPath = [{ x: startCell.c * cellSize + cellSize/2, y: startCell.r * cellSize + cellSize/2 }];
+            gameActive = true;
+            overlay.classList.add('hidden');
+            levelDisplay.textContent = level;
+            
+            draw();
+        }
+
+        function generateMaze() {
+            grid = [];
+            for (let r = 0; r < mazeHeight; r++) {
+                let row = [];
+                for (let c = 0; c < mazeWidth; c++) {
+                    row.push(new Cell(r, c));
+                }
+                grid.push(row);
+            }
+
+            let current = grid[0][0];
+            current.visited = true;
+            stack = [current];
+
+            while (stack.length > 0) {
+                let next = getUnvisitedNeighbor(current);
+                if (next) {
+                    next.visited = true;
+                    stack.push(current);
+                    removeWalls(current, next);
+                    current = next;
+                } else {
+                    current = stack.pop();
+                }
+            }
+
+            startCell = grid[0][0];
+            endCell = grid[mazeHeight - 1][mazeWidth - 1];
+        }
+
+        function getUnvisitedNeighbor(cell) {
+            let neighbors = [];
+            let { r, c } = cell;
+
+            if (r > 0 && !grid[r - 1][c].visited) neighbors.push(grid[r - 1][c]);
+            if (c < mazeWidth - 1 && !grid[r][c + 1].visited) neighbors.push(grid[r][c + 1]);
+            if (r < mazeHeight - 1 && !grid[r + 1][c].visited) neighbors.push(grid[r + 1][c]);
+            if (c > 0 && !grid[r][c - 1].visited) neighbors.push(grid[r][c - 1]);
+
+            if (neighbors.length > 0) {
+                return neighbors[Math.floor(Math.random() * neighbors.length)];
+            }
+            return null;
+        }
+
+        function removeWalls(a, b) {
+            let dx = a.c - b.c;
+            if (dx === 1) { a.walls[3] = false; b.walls[1] = false; }
+            else if (dx === -1) { a.walls[1] = false; b.walls[3] = false; }
+
+            let dy = a.r - b.r;
+            if (dy === 1) { a.walls[0] = false; b.walls[2] = false; }
+            else if (dy === -1) { a.walls[2] = false; b.walls[0] = false; }
+        }
+
+        function draw() {
+            ctx.fillStyle = COLORS.path;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = COLORS.goal;
+            ctx.beginPath();
+            ctx.roundRect(endCell.c * cellSize + 4, endCell.r * cellSize + 4, cellSize - 8, cellSize - 8, 4);
+            ctx.fill();
+
+            ctx.fillStyle = COLORS.start;
+            ctx.beginPath();
+            ctx.roundRect(startCell.c * cellSize + 4, startCell.r * cellSize + 4, cellSize - 8, cellSize - 8, 4);
+            ctx.fill();
+
+            for (let r = 0; r < mazeHeight; r++) {
+                for (let c = 0; c < mazeWidth; c++) {
+                    grid[r][c].draw();
+                }
+            }
+
+            if (playerPath.length > 1) {
+                ctx.strokeStyle = COLORS.player;
+                ctx.lineWidth = Math.max(cellSize * 0.4, 4);
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = COLORS.player;
+                
+                ctx.beginPath();
+                ctx.moveTo(playerPath[0].x, playerPath[0].y);
+                for (let i = 1; i < playerPath.length; i++) {
+                    ctx.lineTo(playerPath[i].x, playerPath[i].y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function checkCollision(x, y) {
+            const col = Math.floor(x / cellSize);
+            const row = Math.floor(y / cellSize);
+            
+            if (col < 0 || col >= mazeWidth || row < 0 || row >= mazeHeight) return true;
+
+            const cell = grid[row][col];
+            const px = x % cellSize;
+            const py = y % cellSize;
+            const buffer = 4;
+
+            if (cell.walls[0] && py < buffer) return true;
+            if (cell.walls[1] && px > cellSize - buffer) return true;
+            if (cell.walls[2] && py > cellSize - buffer) return true;
+            if (cell.walls[3] && px < buffer) return true;
+
+            return false;
+        }
+
+        function handleMove(e) {
+            if (!isTracing || !gameActive) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+
+            if (checkCollision(x, y)) {
+                triggerFail();
+                return;
+            }
+
+            playerPath.push({ x, y });
+            draw();
+
+            const col = Math.floor(x / cellSize);
+            const row = Math.floor(y / cellSize);
+            if (col === endCell.c && row === endCell.r) {
+                triggerWin();
+            }
+        }
+
+        function triggerFail() {
+            isTracing = false;
+            messageBox.style.opacity = '1';
+            setTimeout(() => { messageBox.style.opacity = '0'; }, 1500);
+            
+            playerPath = [{ x: startCell.c * cellSize + cellSize/2, y: startCell.r * cellSize + cellSize/2 }];
+            draw();
+        }
+
+        function triggerWin() {
+            isTracing = false;
+            gameActive = false;
+            
+            if (level >= highScore) {
+                highScore = level + 1;
+                localStorage.setItem('mazeHighScore', highScore);
+                highScoreDisplay.textContent = highScore;
+            }
+
+            overlayTitle.textContent = "LEVEL COMPLETE!";
+            overlay.classList.remove('hidden');
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const lastPoint = playerPath[playerPath.length - 1];
+            const dist = Math.hypot(x - lastPoint.x, y - lastPoint.y);
+            if (dist < cellSize) isTracing = true;
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const x = e.touches[0].clientX - rect.left;
+            const y = e.touches[0].clientY - rect.top;
+            const lastPoint = playerPath[playerPath.length - 1];
+            const dist = Math.hypot(x - lastPoint.x, y - lastPoint.y);
+            if (dist < cellSize) isTracing = true;
+        });
+
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('mouseup', () => { isTracing = false; });
+        window.addEventListener('touchend', () => { isTracing = false; });
+
+        nextBtn.addEventListener('click', () => {
+            level++;
+            initGame();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            initGame();
+        });
+
+        window.onload = initGame;
+        window.onresize = initGame;
+    </script>
+</body>
+</html>
