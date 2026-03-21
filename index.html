@@ -3,15 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Trace Maze</title>
+    <title>Math Chick Maze</title>
     
     <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0f172a">
     
-    <!-- Manifest Data URI for Installation -->
-    <link rel="manifest" href="data:application/manifest+json, %7B%22name%22%3A%22Neon%20Trace%20Maze%22%2C%22short_name%22%3A%22Maze%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f172a%22%2C%22theme_color%22%3A%22%230f172a%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F1611%2F1611175.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%22%7D%5D%7D">
+    <!-- Cute Font for Answers -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Manifest Data URI -->
+    <link rel="manifest" href="data:application/manifest+json, %7B%22name%22%3A%22Math%20Chick%20Maze%22%2C%22short_name%22%3A%22MathMaze%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f172a%22%2C%22theme_color%22%3A%22%230f172a%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F2663%2F2663067.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%22%7D%5D%7D">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -20,7 +23,7 @@
             color: #f8fafc;
             touch-action: none;
             overflow: hidden;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            font-family: 'Fredoka', sans-serif;
         }
         canvas {
             touch-action: none;
@@ -30,122 +33,207 @@
             border-radius: 12px;
             box-shadow: 0 0 30px rgba(56, 189, 248, 0.2);
         }
-        .ui-overlay {
-            pointer-events: none;
+        .ui-overlay { pointer-events: none; }
+        .ui-overlay button, .ui-overlay .pointer-auto { pointer-events: auto; }
+        .glow-text { text-shadow: 0 0 10px rgba(56, 189, 248, 0.8); }
+        .toggle-checkbox:checked { right: 0; border-color: #38bdf8; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #38bdf8; }
+        
+        /* Floating Animation for Chick */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-3px); }
+            100% { transform: translateY(0px); }
         }
-        .ui-overlay button, .ui-overlay .pointer-auto {
-            pointer-events: auto;
-        }
-        .glow-text {
-            text-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
-        }
-        #message-box {
-            transition: opacity 0.3s ease-in-out;
+        .chick-emoji {
+            display: inline-block;
+            animation: float 2s ease-in-out infinite;
         }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-4">
 
     <!-- Game Header -->
-    <div class="w-full max-w-md flex justify-between items-center mb-4 px-2">
+    <div class="w-full max-w-md flex justify-between items-center mb-2 px-2">
         <div>
-            <h1 class="text-2xl font-bold glow-text text-sky-400">Level <span id="level-display">1</span></h1>
-            <p class="text-xs text-slate-400 uppercase tracking-widest">Trace the path to the exit</p>
+            <h1 class="text-xl font-bold glow-text text-sky-400">Level <span id="level-display">1</span></h1>
         </div>
-        <div class="text-right">
-            <div class="text-sm font-semibold text-slate-300">High Score: <span id="high-score">1</span></div>
+        <div class="text-right flex flex-col items-end">
+            <div class="text-[10px] font-semibold text-slate-400 uppercase">Best: <span id="best-level">1</span></div>
         </div>
+    </div>
+
+    <!-- Math Question Area -->
+    <div class="w-full max-w-md bg-slate-800/80 rounded-xl p-3 mb-3 border border-slate-700 text-center shadow-lg">
+        <p class="text-slate-400 text-xs uppercase tracking-widest mb-1">Help the chick find the answer!</p>
+        <div id="math-question" class="text-3xl font-bold text-white tracking-tight">2 + 5 = ?</div>
     </div>
 
     <!-- Canvas Container -->
     <div class="relative bg-slate-800/50 p-1 rounded-2xl border border-slate-700">
         <canvas id="gameCanvas"></canvas>
         
-        <!-- Win/Start Overlays -->
+        <!-- Win Overlay -->
         <div id="overlay" class="absolute inset-0 flex items-center justify-center bg-slate-900/80 rounded-xl hidden ui-overlay">
             <div class="text-center p-8">
-                <h2 id="overlay-title" class="text-4xl font-black mb-4 text-white">LEVEL COMPLETE!</h2>
-                <p id="overlay-msg" class="text-slate-300 mb-6">You've mastered this maze.</p>
-                <button id="next-btn" class="pointer-auto bg-sky-500 hover:bg-sky-400 text-white font-bold py-3 px-8 rounded-full shadow-lg shadow-sky-500/20 transition-all active:scale-95">
-                    NEXT LEVEL
+                <h2 id="overlay-title" class="text-4xl font-bold mb-2 text-white">YAY! 🐣</h2>
+                <p id="overlay-msg" class="text-sky-300 font-bold mb-6">Correct Answer!</p>
+                <button id="next-btn" class="pointer-auto bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all active:scale-95">
+                    Next Challenge
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Controls/Footer -->
-    <div class="w-full max-w-md mt-6 flex justify-center gap-4">
-        <button id="reset-btn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-6 py-2 rounded-lg text-sm font-medium transition-colors">
-            Reset Level
-        </button>
+    <!-- Controls -->
+    <div id="controls-container" class="w-full max-w-md mt-4 flex flex-col items-center gap-3 transition-all">
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-3 bg-slate-800/80 px-4 py-2 rounded-full border border-slate-700">
+                <span class="text-sm font-medium text-slate-300">🧱 Collision</span>
+                <div class="relative inline-block w-10 align-middle select-none">
+                    <input type="checkbox" name="toggle" id="collision-toggle" checked class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all"/>
+                    <label for="collision-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-600 cursor-pointer"></label>
+                </div>
+            </div>
+            
+            <button id="reset-btn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 border border-slate-600">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
+                    <polyline points="21 3 21 8 16 8"></polyline>
+                </svg>
+                Reset
+            </button>
+        </div>
+    </div>
+
+    <!-- PWA Install Prompt Footer -->
+    <div id="pwa-footer" class="fixed bottom-0 left-0 right-0 bg-sky-600 p-4 transform translate-y-full flex items-center justify-between gap-4 z-50 shadow-2xl rounded-t-2xl transition-transform duration-500">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">🐥</span>
+            <div>
+                <p class="text-white font-bold text-sm">Play in Full Screen!</p>
+                <p class="text-sky-100 text-[10px]">Add to your home screen</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="install-btn" class="bg-white text-sky-600 px-4 py-2 rounded-full font-bold text-xs shadow-sm active:scale-95 transition-transform">
+                Install Now
+            </button>
+            <button id="close-pwa-footer" class="text-white/80 p-2">✕</button>
+        </div>
     </div>
 
     <!-- Feedback Message -->
-    <div id="message-box" class="fixed bottom-10 left-1/2 -translate-x-1/2 opacity-0 pointer-events-none bg-rose-500/90 text-white px-4 py-2 rounded-full text-sm font-bold">
-        Wall collision! Try again.
+    <div id="message-box" class="fixed bottom-24 left-1/2 -translate-x-1/2 opacity-0 pointer-events-none bg-rose-500/90 text-white px-4 py-2 rounded-full text-sm font-bold z-40">
+        Oops! Watch out for the walls! 🧱
     </div>
 
     <script>
-        // Service Worker registration for PWA installation
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                const swCode = `self.addEventListener('fetch', (event) => { event.respondWith(fetch(event.request)); });`;
-                const blob = new Blob([swCode], { type: 'text/javascript' });
-                const swUrl = URL.createObjectURL(blob);
-                // Note: Real PWAs usually need a physical file, but this data-blob trick 
-                // helps browser detection for installation in many environments.
-                navigator.serviceWorker.register(swUrl).catch(() => {});
-            });
-        }
-
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const levelDisplay = document.getElementById('level-display');
-        const highScoreDisplay = document.getElementById('high-score');
+        const bestLevelDisplay = document.getElementById('best-level');
+        const mathQuestionEl = document.getElementById('math-question');
         const overlay = document.getElementById('overlay');
-        const overlayTitle = document.getElementById('overlay-title');
         const nextBtn = document.getElementById('next-btn');
         const resetBtn = document.getElementById('reset-btn');
         const messageBox = document.getElementById('message-box');
+        const collisionToggle = document.getElementById('collision-toggle');
+        const pwaFooter = document.getElementById('pwa-footer');
+        const closePwaFooter = document.getElementById('close-pwa-footer');
+        const installBtn = document.getElementById('install-btn');
+        const controlsContainer = document.getElementById('controls-container');
 
         let level = 1;
-        let highScore = localStorage.getItem('mazeHighScore') || 1;
-        highScoreDisplay.textContent = highScore;
+        let bestLevel = parseInt(localStorage.getItem('mazeBestLevel')) || 1;
+        let currentProblem = { q: "2 + 5", a: 7, wrong: 8 };
+        let deferredPrompt;
 
-        let mazeWidth, mazeHeight;
-        let cellSize;
-        let grid = [];
-        let stack = [];
-        let playerPath = [];
-        let isTracing = false;
-        let gameActive = true;
-        let startCell, endCell;
+        // PWA Installation Handling
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            showPwaFooter();
+        });
 
-        // Configuration
+        // Trigger manual check for non-Chrome browsers or testing
+        window.addEventListener('load', () => {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+            if (!isStandalone) {
+                setTimeout(showPwaFooter, 2000);
+            }
+        });
+
+        function showPwaFooter() {
+            pwaFooter.style.transform = 'translateY(0)';
+            controlsContainer.style.marginBottom = '80px';
+        }
+
+        installBtn.onclick = async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    hidePwaFooter();
+                }
+                deferredPrompt = null;
+            } else {
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                if (isIOS) {
+                    alert("To install on iOS: Tap the 'Share' icon and then 'Add to Home Screen' 📲");
+                } else {
+                    alert("To install: Use your browser menu and select 'Install App' or 'Add to Home Screen'");
+                }
+            }
+        };
+
+        function hidePwaFooter() {
+            pwaFooter.style.transform = 'translateY(100%)';
+            controlsContainer.style.marginBottom = '0px';
+        }
+
+        closePwaFooter.onclick = hidePwaFooter;
+
+        function generateProblem() {
+            const max = Math.min(5 + level, 20);
+            const a = Math.floor(Math.random() * max) + 1;
+            const b = Math.floor(Math.random() * max) + 1;
+            const sum = a + b;
+            let wrong = sum + (Math.random() > 0.5 ? 1 : -1);
+            if (wrong < 0 || wrong === sum) wrong = sum + 2;
+            currentProblem = { q: `${a} + ${b}`, a: sum, wrong: wrong };
+            mathQuestionEl.textContent = `${currentProblem.q} = ?`;
+        }
+
+        function updateStatsDisplay() {
+            bestLevelDisplay.textContent = bestLevel;
+        }
+        updateStatsDisplay();
+
+        let mazeWidth, mazeHeight, cellSize, grid = [], playerPath = [], isTracing = false, gameActive = true;
+        let startCell, correctCell, wrongCell;
+
         const COLORS = {
-            wall: '#334155',
+            wall: '#475569',
             path: '#0f172a',
-            player: '#38bdf8',
-            goal: '#4ade80',
-            start: '#818cf8',
-            trail: 'rgba(56, 189, 248, 0.4)'
+            player: '#fde047',
+            goalBox: '#10b981', // Same green for both boxes
+            trail: 'rgba(56, 189, 248, 0.2)'
         };
 
         class Cell {
             constructor(r, c) {
                 this.r = r;
                 this.c = c;
-                this.walls = [true, true, true, true]; // Top, Right, Bottom, Left
+                this.walls = [true, true, true, true];
                 this.visited = false;
             }
-
             draw() {
                 let x = this.c * cellSize;
                 let y = this.r * cellSize;
                 ctx.strokeStyle = COLORS.wall;
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 6;
                 ctx.lineCap = 'round';
-
                 if (this.walls[0]) drawLine(x, y, x + cellSize, y);
                 if (this.walls[1]) drawLine(x + cellSize, y, x + cellSize, y + cellSize);
                 if (this.walls[2]) drawLine(x + cellSize, y + cellSize, x, y + cellSize);
@@ -154,24 +242,19 @@
         }
 
         function drawLine(x1, y1, x2, y2) {
-            ctx.beginPath();
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
         }
 
         function initGame() {
-            const cols = Math.min(5 + level, 25);
-            const rows = Math.min(5 + level, 35);
-            
+            generateProblem();
+            const cols = Math.min(6 + Math.floor(level/2), 15);
+            const rows = Math.min(8 + Math.floor(level/2), 20);
             const padding = 40;
-            const availableWidth = Math.min(window.innerWidth - padding, 500);
-            const availableHeight = Math.min(window.innerHeight - 200, 700);
-            
-            cellSize = Math.floor(Math.min(availableWidth / cols, availableHeight / rows));
+            const availW = Math.min(window.innerWidth - padding, 450);
+            const availH = Math.min(window.innerHeight - 380, 600);
+            cellSize = Math.floor(Math.min(availW / cols, availH / rows));
             canvas.width = cols * cellSize;
             canvas.height = rows * cellSize;
-            
             mazeWidth = cols;
             mazeHeight = rows;
 
@@ -180,7 +263,6 @@
             gameActive = true;
             overlay.classList.add('hidden');
             levelDisplay.textContent = level;
-            
             draw();
         }
 
@@ -188,15 +270,14 @@
             grid = [];
             for (let r = 0; r < mazeHeight; r++) {
                 let row = [];
-                for (let c = 0; c < mazeWidth; c++) {
-                    row.push(new Cell(r, c));
-                }
+                for (let c = 0; c < mazeWidth; c++) row.push(new Cell(r, c));
                 grid.push(row);
             }
 
+            let stack = [];
             let current = grid[0][0];
             current.visited = true;
-            stack = [current];
+            stack.push(current);
 
             while (stack.length > 0) {
                 let next = getUnvisitedNeighbor(current);
@@ -211,29 +292,29 @@
             }
 
             startCell = grid[0][0];
-            endCell = grid[mazeHeight - 1][mazeWidth - 1];
+            correctCell = grid[mazeHeight - 1][mazeWidth - 1];
+            wrongCell = grid[mazeHeight - 1][0];
+            
+            // Seal off the wrong answer cell
+            wrongCell.walls = [true, true, true, true];
+            if (mazeHeight > 1) grid[mazeHeight-2][0].walls[2] = true;
+            if (mazeWidth > 1) grid[mazeHeight-1][1].walls[3] = true;
         }
 
         function getUnvisitedNeighbor(cell) {
             let neighbors = [];
             let { r, c } = cell;
-
             if (r > 0 && !grid[r - 1][c].visited) neighbors.push(grid[r - 1][c]);
             if (c < mazeWidth - 1 && !grid[r][c + 1].visited) neighbors.push(grid[r][c + 1]);
             if (r < mazeHeight - 1 && !grid[r + 1][c].visited) neighbors.push(grid[r + 1][c]);
             if (c > 0 && !grid[r][c - 1].visited) neighbors.push(grid[r][c - 1]);
-
-            if (neighbors.length > 0) {
-                return neighbors[Math.floor(Math.random() * neighbors.length)];
-            }
-            return null;
+            return neighbors.length > 0 ? neighbors[Math.floor(Math.random() * neighbors.length)] : null;
         }
 
         function removeWalls(a, b) {
             let dx = a.c - b.c;
             if (dx === 1) { a.walls[3] = false; b.walls[1] = false; }
             else if (dx === -1) { a.walls[1] = false; b.walls[3] = false; }
-
             let dy = a.r - b.r;
             if (dy === 1) { a.walls[0] = false; b.walls[2] = false; }
             else if (dy === -1) { a.walls[2] = false; b.walls[0] = false; }
@@ -243,140 +324,111 @@
             ctx.fillStyle = COLORS.path;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            ctx.fillStyle = COLORS.goal;
-            ctx.beginPath();
-            ctx.roundRect(endCell.c * cellSize + 4, endCell.r * cellSize + 4, cellSize - 8, cellSize - 8, 4);
-            ctx.fill();
+            // Goals - Using same color for both
+            const drawBox = (cell, val) => {
+                ctx.fillStyle = COLORS.goalBox;
+                ctx.beginPath();
+                ctx.roundRect(cell.c * cellSize + 2, cell.r * cellSize + 2, cellSize - 4, cellSize - 4, 12);
+                ctx.fill();
+                ctx.fillStyle = "white";
+                ctx.font = `bold ${cellSize/1.8}px 'Fredoka', sans-serif`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(val, cell.c * cellSize + cellSize/2, cell.r * cellSize + cellSize/2);
+            };
 
-            ctx.fillStyle = COLORS.start;
-            ctx.beginPath();
-            ctx.roundRect(startCell.c * cellSize + 4, startCell.r * cellSize + 4, cellSize - 8, cellSize - 8, 4);
-            ctx.fill();
+            drawBox(correctCell, currentProblem.a);
+            drawBox(wrongCell, currentProblem.wrong);
 
             for (let r = 0; r < mazeHeight; r++) {
-                for (let c = 0; c < mazeWidth; c++) {
-                    grid[r][c].draw();
-                }
+                for (let c = 0; c < mazeWidth; c++) grid[r][c].draw();
             }
 
             if (playerPath.length > 1) {
-                ctx.strokeStyle = COLORS.player;
-                ctx.lineWidth = Math.max(cellSize * 0.4, 4);
-                ctx.lineJoin = 'round';
-                ctx.lineCap = 'round';
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = COLORS.player;
-                
+                ctx.strokeStyle = COLORS.trail;
+                ctx.lineWidth = cellSize * 0.4;
+                ctx.lineJoin = 'round'; ctx.lineCap = 'round';
                 ctx.beginPath();
                 ctx.moveTo(playerPath[0].x, playerPath[0].y);
-                for (let i = 1; i < playerPath.length; i++) {
-                    ctx.lineTo(playerPath[i].x, playerPath[i].y);
-                }
+                for (let i = 1; i < playerPath.length; i++) ctx.lineTo(playerPath[i].x, playerPath[i].y);
                 ctx.stroke();
-                ctx.shadowBlur = 0;
             }
+
+            // Chick 🐥 - Made smaller (0.6x cell size instead of 0.9x)
+            const last = playerPath[playerPath.length - 1];
+            ctx.font = `${cellSize * 0.65}px serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("🐥", last.x, last.y);
         }
 
         function checkCollision(x, y) {
-            const col = Math.floor(x / cellSize);
-            const row = Math.floor(y / cellSize);
-            
+            if (!collisionToggle.checked) return false;
+            const col = Math.floor(x / cellSize), row = Math.floor(y / cellSize);
             if (col < 0 || col >= mazeWidth || row < 0 || row >= mazeHeight) return true;
-
             const cell = grid[row][col];
-            const px = x % cellSize;
-            const py = y % cellSize;
-            const buffer = 4;
-
-            if (cell.walls[0] && py < buffer) return true;
-            if (cell.walls[1] && px > cellSize - buffer) return true;
-            if (cell.walls[2] && py > cellSize - buffer) return true;
-            if (cell.walls[3] && px < buffer) return true;
-
+            const px = x % cellSize, py = y % cellSize;
+            const b = 8;
+            if (cell.walls[0] && py < b) return true;
+            if (cell.walls[1] && px > cellSize - b) return true;
+            if (cell.walls[2] && py > cellSize - b) return true;
+            if (cell.walls[3] && px < b) return true;
             return false;
         }
 
         function handleMove(e) {
             if (!isTracing || !gameActive) return;
-
             const rect = canvas.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            
-            const x = clientX - rect.left;
-            const y = clientY - rect.top;
+            const x = clientX - rect.left, y = clientY - rect.top;
 
             if (checkCollision(x, y)) {
-                triggerFail();
+                isTracing = false;
+                messageBox.style.opacity = '1';
+                setTimeout(() => messageBox.style.opacity = '0', 1500);
+                playerPath = [{ x: startCell.c * cellSize + cellSize/2, y: startCell.r * cellSize + cellSize/2 }];
+                draw();
                 return;
             }
 
             playerPath.push({ x, y });
             draw();
 
-            const col = Math.floor(x / cellSize);
-            const row = Math.floor(y / cellSize);
-            if (col === endCell.c && row === endCell.r) {
-                triggerWin();
+            const col = Math.floor(x / cellSize), row = Math.floor(y / cellSize);
+            if (col === correctCell.c && row === correctCell.r) {
+                isTracing = false; gameActive = false;
+                if (level >= bestLevel) {
+                    bestLevel = level + 1;
+                    localStorage.setItem('mazeBestLevel', bestLevel);
+                    updateStatsDisplay();
+                }
+                overlay.classList.remove('hidden');
             }
-        }
-
-        function triggerFail() {
-            isTracing = false;
-            messageBox.style.opacity = '1';
-            setTimeout(() => { messageBox.style.opacity = '0'; }, 1500);
-            
-            playerPath = [{ x: startCell.c * cellSize + cellSize/2, y: startCell.r * cellSize + cellSize/2 }];
-            draw();
-        }
-
-        function triggerWin() {
-            isTracing = false;
-            gameActive = false;
-            
-            if (level >= highScore) {
-                highScore = level + 1;
-                localStorage.setItem('mazeHighScore', highScore);
-                highScoreDisplay.textContent = highScore;
-            }
-
-            overlayTitle.textContent = "LEVEL COMPLETE!";
-            overlay.classList.remove('hidden');
         }
 
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const lastPoint = playerPath[playerPath.length - 1];
-            const dist = Math.hypot(x - lastPoint.x, y - lastPoint.y);
-            if (dist < cellSize) isTracing = true;
+            const x = e.clientX - rect.left, y = e.clientY - rect.top;
+            const last = playerPath[playerPath.length - 1];
+            if (Math.hypot(x - last.x, y - last.y) < cellSize) isTracing = true;
         });
 
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             const rect = canvas.getBoundingClientRect();
-            const x = e.touches[0].clientX - rect.left;
-            const y = e.touches[0].clientY - rect.top;
-            const lastPoint = playerPath[playerPath.length - 1];
-            const dist = Math.hypot(x - lastPoint.x, y - lastPoint.y);
-            if (dist < cellSize) isTracing = true;
+            const x = e.touches[0].clientX - rect.left, y = e.touches[0].clientY - rect.top;
+            const last = playerPath[playerPath.length - 1];
+            if (Math.hypot(x - last.x, y - last.y) < cellSize) isTracing = true;
         });
 
         window.addEventListener('mousemove', handleMove);
         window.addEventListener('touchmove', handleMove, { passive: false });
-        window.addEventListener('mouseup', () => { isTracing = false; });
-        window.addEventListener('touchend', () => { isTracing = false; });
+        window.addEventListener('mouseup', () => isTracing = false);
+        window.addEventListener('touchend', () => isTracing = false);
 
-        nextBtn.addEventListener('click', () => {
-            level++;
-            initGame();
-        });
-
-        resetBtn.addEventListener('click', () => {
-            initGame();
-        });
-
+        nextBtn.onclick = () => { level++; initGame(); };
+        resetBtn.onclick = initGame;
         window.onload = initGame;
         window.onresize = initGame;
     </script>
