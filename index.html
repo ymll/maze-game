@@ -11,11 +11,11 @@
     <meta name="apple-mobile-web-app-title" content="MathMaze">
     <meta name="theme-color" content="#0f172a">
     
-    <!-- Cute Font for Answers -->
+    <!-- Cute Font -->
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;700&display=swap" rel="stylesheet">
     
-    <!-- Manifest Data URI (Updated for better App detection) -->
-    <link rel="manifest" href="data:application/manifest+json, %7B%22name%22%3A%22Math%20Chick%20Maze%22%2C%22short_name%22%3A%22MathMaze%22%2C%22start_url%22%3A%22index.html%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22portrait%22%2C%22background_color%22%3A%22%230f172a%22%2C%22theme_color%22%3A%22%230f172a%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F2663%2F2663067.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%22%7D%5D%7D">
+    <!-- Manifest Data URI -->
+    <link rel="manifest" href="data:application/manifest+json, %7B%22name%22%3A%22Math%20Chick%20Maze%22%2C%22short_name%22%3A%22MathMaze%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22portrait%22%2C%22background_color%22%3A%22%230f172a%22%2C%22theme_color%22%3A%22%230f172a%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F2663%2F2663067.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%22%7D%5D%7D">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -33,7 +33,7 @@
             margin: 0 auto;
             border-radius: 12px;
             box-shadow: 0 0 30px rgba(56, 189, 248, 0.2);
-            max-width: 100%; /* Ensure it takes full width on small phones */
+            max-width: 100%;
         }
         .ui-overlay { pointer-events: none; }
         .ui-overlay button, .ui-overlay .pointer-auto { pointer-events: auto; }
@@ -57,7 +57,7 @@
     <!-- Math Question Area -->
     <div class="w-full max-w-md bg-slate-800/80 rounded-xl p-3 mb-3 border border-slate-700 text-center shadow-lg">
         <p class="text-slate-400 text-xs uppercase tracking-widest mb-1">Help the chick find the answer!</p>
-        <div id="math-question" class="text-3xl font-bold text-white tracking-tight">2 + 5 = ?</div>
+        <div id="math-question" class="text-3xl font-bold text-white tracking-tight">? + ? = ?</div>
     </div>
 
     <!-- Canvas Container -->
@@ -97,7 +97,7 @@
         </div>
     </div>
 
-    <!-- PWA Install Prompt Footer -->
+    <!-- PWA Install Prompt -->
     <div id="pwa-footer" class="fixed bottom-0 left-0 right-0 bg-sky-600 p-4 transform translate-y-full flex items-center justify-between gap-4 z-50 shadow-2xl rounded-t-2xl transition-transform duration-500">
         <div class="flex items-center gap-3">
             <span class="text-2xl">🐥</span>
@@ -120,7 +120,7 @@
     </div>
 
     <script>
-        // Register a dummy Service Worker to help browsers recognize this as a PWA
+        // PWA Setup
         if ('serviceWorker' in navigator) {
             const swCode = `self.addEventListener('fetch', (event) => { event.respondWith(fetch(event.request)); });`;
             const blob = new Blob([swCode], { type: 'text/javascript' });
@@ -145,21 +145,23 @@
 
         let level = 1;
         let bestLevel = parseInt(localStorage.getItem('mazeBestLevel')) || 1;
-        let currentProblem = { q: "2 + 5", a: 7, wrong: 8 };
+        let currentProblem = { q: "", a: 0, wrong: 0 };
         let deferredPrompt;
 
-        // PWA Installation Handling
+        // PWA Installation Logic for Android/Chrome
         window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
             e.preventDefault();
+            // Stash the event so it can be triggered later
             deferredPrompt = e;
+            // Update UI notify the user they can install the PWA
             showPwaFooter();
         });
 
-        window.addEventListener('load', () => {
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-            if (!isStandalone) {
-                setTimeout(showPwaFooter, 1500);
-            }
+        window.addEventListener('appinstalled', () => {
+            hidePwaFooter();
+            deferredPrompt = null;
+            console.log('PWA was installed');
         });
 
         function showPwaFooter() {
@@ -167,26 +169,34 @@
             controlsContainer.style.marginBottom = '80px';
         }
 
-        installBtn.onclick = async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') hidePwaFooter();
-                deferredPrompt = null;
-            } else {
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-                if (isIOS) {
-                    alert("To install: Tap the 'Share' icon (square with arrow) at the bottom and then select 'Add to Home Screen' 📲");
-                } else {
-                    alert("Open your browser menu (three dots) and select 'Install App' or 'Add to Home Screen'");
-                }
-            }
-        };
-
         function hidePwaFooter() {
             pwaFooter.style.transform = 'translateY(100%)';
             controlsContainer.style.marginBottom = '0px';
         }
+
+        installBtn.onclick = async () => {
+            if (deferredPrompt) {
+                // Show the install prompt
+                deferredPrompt.prompt();
+                // Wait for the user to respond to the prompt
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                } else {
+                    console.log('User dismissed the install prompt');
+                }
+                deferredPrompt = null;
+                hidePwaFooter();
+            } else {
+                // Fallback for iOS or already installed
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                if (isIOS) {
+                    alert("To install: Tap the 'Share' icon (square with arrow) and select 'Add to Home Screen' 📲");
+                } else {
+                    alert("Check your browser menu (⋮) for 'Install App' or 'Add to Home Screen'.");
+                }
+            }
+        };
 
         closePwaFooter.onclick = hidePwaFooter;
 
@@ -242,11 +252,9 @@
 
         function initGame() {
             generateProblem();
-            // Increased grid size scaling for wider maze
             const cols = Math.min(8 + Math.floor(level/2), 16);
             const rows = Math.min(10 + Math.floor(level/2), 22);
             
-            // Adjust to container width (wider on mobile)
             const padding = 20;
             const availW = Math.min(window.innerWidth - padding, 450);
             const availH = Math.min(window.innerHeight - 350, 600);
@@ -291,28 +299,32 @@
             }
 
             startCell = grid[0][0];
-            correctCell = grid[mazeHeight - 1][mazeWidth - 1];
-            wrongCell = grid[mazeHeight - 1][0];
             
-            // Ensure both goals are reachable by "opening" a wall to them
-            // Correct cell opening
-            if (correctCell.walls[0] && correctCell.walls[3]) {
-                // If it's a corner, ensure at least one neighbor has an opening
-                if (mazeHeight > 1) {
-                    correctCell.walls[0] = false;
-                    grid[mazeHeight-2][mazeWidth-1].walls[2] = false;
+            // Randomly pick corners for targets
+            // Corners: TR (0, W-1), BR (H-1, W-1), BL (H-1, 0)
+            const corners = [
+                {r: 0, c: mazeWidth - 1},
+                {r: mazeHeight - 1, c: mazeWidth - 1},
+                {r: mazeHeight - 1, c: 0}
+            ];
+            
+            // Shuffle corners
+            for (let i = corners.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [corners[i], corners[j]] = [corners[j], corners[i]];
+            }
+            
+            correctCell = grid[corners[0].r][corners[0].c];
+            wrongCell = grid[corners[1].r][corners[1].c];
+            
+            // Ensure goals aren't isolated (sometimes maze gen leaves them weird)
+            [correctCell, wrongCell].forEach(cell => {
+                if (cell.walls.every(w => w === true)) {
+                    // Open a wall to a neighbor
+                    if (cell.r > 0) { cell.walls[0] = false; grid[cell.r-1][cell.c].walls[2] = false; }
+                    else if (cell.r < mazeHeight-1) { cell.walls[2] = false; grid[cell.r+1][cell.c].walls[0] = false; }
                 }
-            }
-            
-            // Fix: To ensure the "Wrong" answer is visible but blocked from the start logic 
-            // OR simply a different path, we make it an actual part of the maze but blocked by 
-            // the logic check later. To avoid "unreachable" boxes, we ensure they aren't fully enclosed.
-            
-            // If the wrong cell is totally walled in, open one side to a neighbor
-            if (wrongCell.walls.every(w => w === true)) {
-                wrongCell.walls[0] = false;
-                grid[mazeHeight-2][0].walls[2] = false;
-            }
+            });
         }
 
         function getUnvisitedNeighbor(cell) {
@@ -380,7 +392,7 @@
             if (col < 0 || col >= mazeWidth || row < 0 || row >= mazeHeight) return true;
             const cell = grid[row][col];
             const px = x % cellSize, py = y % cellSize;
-            const b = 6; // buffer
+            const b = 6;
             if (cell.walls[0] && py < b) return true;
             if (cell.walls[1] && px > cellSize - b) return true;
             if (cell.walls[2] && py > cellSize - b) return true;
@@ -412,7 +424,6 @@
 
             const col = Math.floor(x / cellSize), row = Math.floor(y / cellSize);
             
-            // Check if reached wrong answer
             if (col === wrongCell.c && row === wrongCell.r) {
                 isTracing = false;
                 messageBox.textContent = "That's not the right sum! 🐣";
@@ -425,7 +436,6 @@
                 draw();
             }
 
-            // Check if reached correct answer
             if (col === correctCell.c && row === correctCell.r) {
                 isTracing = false; gameActive = false;
                 if (level >= bestLevel) {
@@ -466,7 +476,9 @@
         nextBtn.onclick = () => { level++; initGame(); };
         resetBtn.onclick = initGame;
         window.onload = initGame;
-        window.onresize = initGame;
+        window.onresize = () => {
+            if (gameActive) initGame();
+        };
     </script>
 </body>
 </html>
