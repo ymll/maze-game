@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Math Chick Maze</title>
+    <title>Easter Chick Maze</title>
     
     <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="MathMaze">
+    <meta name="apple-mobile-web-app-title" content="EasterMaze">
     <meta name="theme-color" content="#0f172a">
     
     <!-- Cute Font -->
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;700&display=swap" rel="stylesheet">
     
     <!-- Manifest Data URI -->
-    <link rel="manifest" href="data:application/manifest+json, %7B%22name%22%3A%22Math%20Chick%20Maze%22%2C%22short_name%22%3A%22MathMaze%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22portrait%22%2C%22background_color%22%3A%22%230f172a%22%2C%22theme_color%22%3A%22%230f172a%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F2663%2F2663067.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%22%7D%5D%7D">
+    <link rel="manifest" href="data:application/manifest+json, %7B%22name%22%3A%22Easter%20Chick%20Maze%22%2C%22short_name%22%3A%22EasterMaze%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22portrait%22%2C%22background_color%22%3A%22%230f172a%22%2C%22theme_color%22%3A%22%230f172a%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F2663%2F2663067.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%22%7D%5D%7D">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -31,15 +31,21 @@
             cursor: crosshair;
             display: block;
             margin: 0 auto;
-            border-radius: 12px;
-            box-shadow: 0 0 30px rgba(56, 189, 248, 0.2);
+            border-radius: 16px;
+            box-shadow: 0 0 40px rgba(168, 85, 247, 0.2);
             max-width: 100%;
         }
         .ui-overlay { pointer-events: none; }
         .ui-overlay button, .ui-overlay .pointer-auto { pointer-events: auto; }
-        .glow-text { text-shadow: 0 0 10px rgba(56, 189, 248, 0.8); }
-        .toggle-checkbox:checked { right: 0; border-color: #38bdf8; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #38bdf8; }
+        .glow-text { text-shadow: 0 0 10px rgba(168, 85, 247, 0.8); }
+        .toggle-checkbox:checked { right: 0; border-color: #a855f7; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #a855f7; }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        .chick-bounce { animation: bounce 0.5s infinite; }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-2 sm:p-4">
@@ -47,7 +53,7 @@
     <!-- Game Header -->
     <div class="w-full max-w-md flex justify-between items-center mb-2 px-2">
         <div>
-            <h1 class="text-xl font-bold glow-text text-sky-400">Level <span id="level-display">1</span></h1>
+            <h1 class="text-xl font-bold glow-text text-purple-400">Level <span id="level-display">1</span></h1>
         </div>
         <div class="text-right flex flex-col items-end">
             <div class="text-[10px] font-semibold text-slate-400 uppercase">Best: <span id="best-level">1</span></div>
@@ -55,22 +61,23 @@
     </div>
 
     <!-- Math Question Area -->
-    <div class="w-full max-w-md bg-slate-800/80 rounded-xl p-3 mb-3 border border-slate-700 text-center shadow-lg">
-        <p class="text-slate-400 text-xs uppercase tracking-widest mb-1">Help the chick find the answer!</p>
+    <div class="w-full max-w-md bg-slate-800/80 rounded-2xl p-3 mb-3 border border-slate-700 text-center shadow-lg">
+        <p class="text-slate-400 text-xs uppercase tracking-widest mb-1">Find the Easter Egg with the answer!</p>
         <div id="math-question" class="text-3xl font-bold text-white tracking-tight">? + ? = ?</div>
     </div>
 
     <!-- Canvas Container -->
-    <div id="canvas-wrapper" class="relative w-full max-w-md bg-slate-800/50 p-1 rounded-2xl border border-slate-700 flex justify-center">
+    <div id="canvas-wrapper" class="relative w-full max-w-md bg-slate-800/50 p-1 rounded-3xl border border-slate-700 flex justify-center">
         <canvas id="gameCanvas"></canvas>
         
         <!-- Win Overlay -->
-        <div id="overlay" class="absolute inset-0 flex items-center justify-center bg-slate-900/80 rounded-xl hidden ui-overlay z-10">
+        <div id="overlay" class="absolute inset-0 flex items-center justify-center bg-slate-900/90 rounded-2xl hidden ui-overlay z-10">
             <div class="text-center p-8">
-                <h2 id="overlay-title" class="text-4xl font-bold mb-2 text-white">YAY! 🐣</h2>
-                <p id="overlay-msg" class="text-sky-300 font-bold mb-6">Correct Answer!</p>
-                <button id="next-btn" class="pointer-auto bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all active:scale-95">
-                    Next Challenge
+                <div class="text-6xl mb-4">🐰🍭</div>
+                <h2 id="overlay-title" class="text-4xl font-bold mb-2 text-white">YUMMY!</h2>
+                <p id="overlay-msg" class="text-purple-300 font-bold mb-6">You found the right egg!</p>
+                <button id="next-btn" class="pointer-auto bg-purple-500 hover:bg-purple-400 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all active:scale-95">
+                    Next Egg Hunt
                 </button>
             </div>
         </div>
@@ -79,7 +86,7 @@
     <!-- Controls -->
     <div id="controls-container" class="w-full max-w-md mt-4 flex flex-col items-center gap-3 transition-all">
         <div class="flex items-center gap-4 sm:gap-6">
-            <div class="flex items-center gap-3 bg-slate-800/80 px-4 py-2 rounded-full border border-slate-700">
+            <div class="flex items-center gap-3 bg-slate-800/80 px-4 py-2 rounded-full border border-slate-700 shadow-inner">
                 <span class="text-sm font-medium text-slate-300">🧱 Walls</span>
                 <div class="relative inline-block w-10 align-middle select-none">
                     <input type="checkbox" name="toggle" id="collision-toggle" checked class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all"/>
@@ -97,17 +104,17 @@
         </div>
     </div>
 
-    <!-- PWA Install Prompt -->
-    <div id="pwa-footer" class="fixed bottom-0 left-0 right-0 bg-sky-600 p-4 transform translate-y-full flex items-center justify-between gap-4 z-50 shadow-2xl rounded-t-2xl transition-transform duration-500">
+    <!-- PWA Install Footer -->
+    <div id="pwa-footer" class="fixed bottom-0 left-0 right-0 bg-purple-600 p-4 transform translate-y-full flex items-center justify-between gap-4 z-50 shadow-2xl rounded-t-3xl transition-transform duration-500">
         <div class="flex items-center gap-3">
-            <span class="text-2xl">🐥</span>
+            <span class="text-2xl">🥚</span>
             <div>
-                <p class="text-white font-bold text-sm">Play as an App!</p>
-                <p class="text-sky-100 text-[10px]">Install for full screen mode</p>
+                <p class="text-white font-bold text-sm">Add to Home Screen</p>
+                <p class="text-purple-100 text-[10px]">Play full screen for Easter!</p>
             </div>
         </div>
         <div class="flex items-center gap-2">
-            <button id="install-btn" class="bg-white text-sky-600 px-4 py-2 rounded-full font-bold text-xs shadow-sm active:scale-95 transition-transform">
+            <button id="install-btn" class="bg-white text-purple-600 px-4 py-2 rounded-full font-bold text-xs shadow-sm active:scale-95 transition-transform">
                 Install
             </button>
             <button id="close-pwa-footer" class="text-white/80 p-2">✕</button>
@@ -120,7 +127,6 @@
     </div>
 
     <script>
-        // PWA Setup
         if ('serviceWorker' in navigator) {
             const swCode = `self.addEventListener('fetch', (event) => { event.respondWith(fetch(event.request)); });`;
             const blob = new Blob([swCode], { type: 'text/javascript' });
@@ -148,20 +154,11 @@
         let currentProblem = { q: "", a: 0, wrong: 0 };
         let deferredPrompt;
 
-        // PWA Installation Logic for Android/Chrome
+        // PWA logic
         window.addEventListener('beforeinstallprompt', (e) => {
-            // Prevent the mini-infobar from appearing on mobile
             e.preventDefault();
-            // Stash the event so it can be triggered later
             deferredPrompt = e;
-            // Update UI notify the user they can install the PWA
             showPwaFooter();
-        });
-
-        window.addEventListener('appinstalled', () => {
-            hidePwaFooter();
-            deferredPrompt = null;
-            console.log('PWA was installed');
         });
 
         function showPwaFooter() {
@@ -176,24 +173,16 @@
 
         installBtn.onclick = async () => {
             if (deferredPrompt) {
-                // Show the install prompt
                 deferredPrompt.prompt();
-                // Wait for the user to respond to the prompt
                 const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    console.log('User accepted the install prompt');
-                } else {
-                    console.log('User dismissed the install prompt');
-                }
                 deferredPrompt = null;
                 hidePwaFooter();
             } else {
-                // Fallback for iOS or already installed
                 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
                 if (isIOS) {
-                    alert("To install: Tap the 'Share' icon (square with arrow) and select 'Add to Home Screen' 📲");
+                    alert("Tap Share and 'Add to Home Screen' to play full screen! 📲");
                 } else {
-                    alert("Check your browser menu (⋮) for 'Install App' or 'Add to Home Screen'.");
+                    alert("Open browser settings and select 'Install' or 'Add to Home Screen'");
                 }
             }
         };
@@ -201,7 +190,7 @@
         closePwaFooter.onclick = hidePwaFooter;
 
         function generateProblem() {
-            const max = Math.min(5 + level, 20);
+            const max = Math.min(5 + level, 15);
             const a = Math.floor(Math.random() * max) + 1;
             const b = Math.floor(Math.random() * max) + 1;
             const sum = a + b;
@@ -222,8 +211,9 @@
         const COLORS = {
             wall: '#475569',
             path: '#0f172a',
-            goalBox: '#10b981',
-            trail: 'rgba(56, 189, 248, 0.2)'
+            correctEgg: ['#f472b6', '#db2777'], // Pink
+            wrongEgg: ['#60a5fa', '#2563eb'],   // Blue
+            trail: 'rgba(168, 85, 247, 0.2)'
         };
 
         class Cell {
@@ -237,7 +227,7 @@
                 let x = this.c * cellSize;
                 let y = this.r * cellSize;
                 ctx.strokeStyle = COLORS.wall;
-                ctx.lineWidth = Math.max(2, cellSize * 0.1);
+                ctx.lineWidth = Math.max(3, cellSize * 0.12);
                 ctx.lineCap = 'round';
                 if (this.walls[0]) drawLine(x, y, x + cellSize, y);
                 if (this.walls[1]) drawLine(x + cellSize, y, x + cellSize, y + cellSize);
@@ -252,12 +242,12 @@
 
         function initGame() {
             generateProblem();
-            const cols = Math.min(8 + Math.floor(level/2), 16);
-            const rows = Math.min(10 + Math.floor(level/2), 22);
+            const cols = Math.min(7 + Math.floor(level/3), 14);
+            const rows = Math.min(9 + Math.floor(level/3), 18);
             
-            const padding = 20;
+            const padding = 24;
             const availW = Math.min(window.innerWidth - padding, 450);
-            const availH = Math.min(window.innerHeight - 350, 600);
+            const availH = Math.min(window.innerHeight - 380, 600);
             
             cellSize = Math.floor(Math.min(availW / cols, availH / rows));
             canvas.width = cols * cellSize;
@@ -300,15 +290,12 @@
 
             startCell = grid[0][0];
             
-            // Randomly pick corners for targets
-            // Corners: TR (0, W-1), BR (H-1, W-1), BL (H-1, 0)
             const corners = [
                 {r: 0, c: mazeWidth - 1},
                 {r: mazeHeight - 1, c: mazeWidth - 1},
                 {r: mazeHeight - 1, c: 0}
             ];
             
-            // Shuffle corners
             for (let i = corners.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [corners[i], corners[j]] = [corners[j], corners[i]];
@@ -317,10 +304,8 @@
             correctCell = grid[corners[0].r][corners[0].c];
             wrongCell = grid[corners[1].r][corners[1].c];
             
-            // Ensure goals aren't isolated (sometimes maze gen leaves them weird)
             [correctCell, wrongCell].forEach(cell => {
                 if (cell.walls.every(w => w === true)) {
-                    // Open a wall to a neighbor
                     if (cell.r > 0) { cell.walls[0] = false; grid[cell.r-1][cell.c].walls[2] = false; }
                     else if (cell.r < mazeHeight-1) { cell.walls[2] = false; grid[cell.r+1][cell.c].walls[0] = false; }
                 }
@@ -346,24 +331,52 @@
             else if (dy === -1) { a.walls[2] = false; b.walls[0] = false; }
         }
 
+        function drawEgg(x, y, w, h, colors, label) {
+            const centerX = x + w/2;
+            const centerY = y + h/2;
+            const rx = w * 0.35;
+            const ry = h * 0.45;
+
+            // Egg shape using bezier
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - ry);
+            ctx.bezierCurveTo(centerX + rx, centerY - ry, centerX + rx, centerY + ry, centerX, centerY + ry);
+            ctx.bezierCurveTo(centerX - rx, centerY + ry, centerX - rx, centerY - ry, centerX, centerY - ry);
+            
+            const grad = ctx.createRadialGradient(centerX - rx/3, centerY - ry/3, 2, centerX, centerY, ry);
+            grad.addColorStop(0, colors[0]);
+            grad.addColorStop(1, colors[1]);
+            ctx.fillStyle = grad;
+            ctx.fill();
+            
+            // Decorative zig-zag
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX - rx * 0.7, centerY);
+            ctx.lineTo(centerX - rx * 0.3, centerY + 5);
+            ctx.lineTo(centerX, centerY);
+            ctx.lineTo(centerX + rx * 0.3, centerY + 5);
+            ctx.lineTo(centerX + rx * 0.7, centerY);
+            ctx.stroke();
+
+            ctx.fillStyle = "white";
+            ctx.font = `bold ${cellSize/2.2}px 'Fredoka', sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 4;
+            ctx.fillText(label, centerX, centerY);
+            ctx.restore();
+        }
+
         function draw() {
             ctx.fillStyle = COLORS.path;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            const drawBox = (cell, val) => {
-                ctx.fillStyle = COLORS.goalBox;
-                ctx.beginPath();
-                ctx.roundRect(cell.c * cellSize + 4, cell.r * cellSize + 4, cellSize - 8, cellSize - 8, 8);
-                ctx.fill();
-                ctx.fillStyle = "white";
-                ctx.font = `bold ${cellSize/2}px 'Fredoka', sans-serif`;
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(val, cell.c * cellSize + cellSize/2, cell.r * cellSize + cellSize/2);
-            };
-
-            drawBox(correctCell, currentProblem.a);
-            drawBox(wrongCell, currentProblem.wrong);
+            drawEgg(correctCell.c * cellSize, correctCell.r * cellSize, cellSize, cellSize, COLORS.correctEgg, currentProblem.a);
+            drawEgg(wrongCell.c * cellSize, wrongCell.r * cellSize, cellSize, cellSize, COLORS.wrongEgg, currentProblem.wrong);
 
             for (let r = 0; r < mazeHeight; r++) {
                 for (let c = 0; c < mazeWidth; c++) grid[r][c].draw();
@@ -371,7 +384,7 @@
 
             if (playerPath.length > 1) {
                 ctx.strokeStyle = COLORS.trail;
-                ctx.lineWidth = cellSize * 0.4;
+                ctx.lineWidth = cellSize * 0.45;
                 ctx.lineJoin = 'round'; ctx.lineCap = 'round';
                 ctx.beginPath();
                 ctx.moveTo(playerPath[0].x, playerPath[0].y);
@@ -380,10 +393,16 @@
             }
 
             const last = playerPath[playerPath.length - 1];
-            ctx.font = `${cellSize * 0.6}px serif`;
+            ctx.save();
+            ctx.font = `${cellSize * 0.7}px serif`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText("🐥", last.x, last.y);
+            // Chick wobble
+            const wobble = isTracing ? Math.sin(Date.now()/50) * 3 : 0;
+            ctx.fillText("🐥", last.x, last.y + wobble);
+            ctx.restore();
+            
+            if (isTracing) requestAnimationFrame(draw);
         }
 
         function checkCollision(x, y) {
@@ -392,7 +411,7 @@
             if (col < 0 || col >= mazeWidth || row < 0 || row >= mazeHeight) return true;
             const cell = grid[row][col];
             const px = x % cellSize, py = y % cellSize;
-            const b = 6;
+            const b = 8; // thicker walls collision for better feel
             if (cell.walls[0] && py < b) return true;
             if (cell.walls[1] && px > cellSize - b) return true;
             if (cell.walls[2] && py > cellSize - b) return true;
@@ -420,13 +439,13 @@
             }
 
             playerPath.push({ x, y });
-            draw();
+            // draw() is now handled by rAF loop while isTracing
 
             const col = Math.floor(x / cellSize), row = Math.floor(y / cellSize);
             
             if (col === wrongCell.c && row === wrongCell.r) {
                 isTracing = false;
-                messageBox.textContent = "That's not the right sum! 🐣";
+                messageBox.textContent = "Oops! That egg is empty! 🥚";
                 messageBox.style.opacity = '1';
                 setTimeout(() => {
                     messageBox.textContent = "Oops! Watch out for the walls! 🧱";
@@ -454,7 +473,10 @@
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
             const last = playerPath[playerPath.length - 1];
-            if (Math.hypot(x - last.x, y - last.y) < cellSize) isTracing = true;
+            if (Math.hypot(x - last.x, y - last.y) < cellSize) {
+                isTracing = true;
+                requestAnimationFrame(draw);
+            }
         });
 
         canvas.addEventListener('touchstart', (e) => {
@@ -465,7 +487,10 @@
             const x = (e.touches[0].clientX - rect.left) * scaleX;
             const y = (e.touches[0].clientY - rect.top) * scaleY;
             const last = playerPath[playerPath.length - 1];
-            if (Math.hypot(x - last.x, y - last.y) < cellSize) isTracing = true;
+            if (Math.hypot(x - last.x, y - last.y) < cellSize) {
+                isTracing = true;
+                requestAnimationFrame(draw);
+            }
         });
 
         window.addEventListener('mousemove', handleMove);
@@ -476,9 +501,7 @@
         nextBtn.onclick = () => { level++; initGame(); };
         resetBtn.onclick = initGame;
         window.onload = initGame;
-        window.onresize = () => {
-            if (gameActive) initGame();
-        };
+        window.onresize = () => { if (gameActive) initGame(); };
     </script>
 </body>
 </html>
