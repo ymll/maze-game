@@ -156,11 +156,13 @@
         let deferredPrompt;
 
         // Platform detection
-        const isIOS = /iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isIOS = /iPhone|iPod/.test(navigator.userAgent);
         const isIPadOS = /iPad/.test(navigator.userAgent) ||
             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
             window.navigator.standalone === true;
+
+        const IOS_FOOTER_DELAY_MS = 2000;
 
         // PWA logic — Android: show footer when browser install prompt is available
         window.addEventListener('beforeinstallprompt', (e) => {
@@ -171,9 +173,9 @@
 
         // iOS / iPadOS: show footer with step-by-step instructions if not already installed
         if ((isIOS || isIPadOS) && !isStandalone) {
-            pwaInstallHint.textContent = 'Tap Share \uD83D\uDCE4 \u2192 \u201CAdd to Home Screen\u201D';
+            pwaInstallHint.textContent = 'Tap Share 📤 → "Add to Home Screen"';
             installBtn.style.display = 'none';
-            setTimeout(showPwaFooter, 2000);
+            setTimeout(showPwaFooter, IOS_FOOTER_DELAY_MS);
         }
 
         function showPwaFooter() {
