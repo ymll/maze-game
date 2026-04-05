@@ -110,7 +110,7 @@
             <span class="text-2xl">🥚</span>
             <div>
                 <p class="text-white font-bold text-sm">Add to Home Screen</p>
-                <p class="text-purple-100 text-[10px]">Play full screen for Easter!</p>
+                <p id="pwa-install-hint" class="text-purple-100 text-[10px]">Play full screen for Easter!</p>
             </div>
         </div>
         <div class="flex items-center gap-2">
@@ -148,18 +148,33 @@
         const closePwaFooter = document.getElementById('close-pwa-footer');
         const installBtn = document.getElementById('install-btn');
         const controlsContainer = document.getElementById('controls-container');
+        const pwaInstallHint = document.getElementById('pwa-install-hint');
 
         let level = 1;
         let bestLevel = parseInt(localStorage.getItem('mazeBestLevel')) || 1;
         let currentProblem = { q: "", a: 0, wrong: 0 };
         let deferredPrompt;
 
-        // PWA logic
+        // Platform detection
+        const isIOS = /iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isIPadOS = /iPad/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+            window.navigator.standalone === true;
+
+        // PWA logic — Android: show footer when browser install prompt is available
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
             showPwaFooter();
         });
+
+        // iOS / iPadOS: show footer with step-by-step instructions if not already installed
+        if ((isIOS || isIPadOS) && !isStandalone) {
+            pwaInstallHint.textContent = 'Tap Share \uD83D\uDCE4 \u2192 \u201CAdd to Home Screen\u201D';
+            installBtn.style.display = 'none';
+            setTimeout(showPwaFooter, 2000);
+        }
 
         function showPwaFooter() {
             pwaFooter.style.transform = 'translateY(0)';
@@ -171,19 +186,13 @@
             controlsContainer.style.marginBottom = '0px';
         }
 
+        // Android: directly trigger the native install prompt — no alert fallback
         installBtn.onclick = async () => {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
                 deferredPrompt = null;
                 hidePwaFooter();
-            } else {
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-                if (isIOS) {
-                    alert("Tap Share and 'Add to Home Screen' to play full screen! 📲");
-                } else {
-                    alert("Open browser settings and select 'Install' or 'Add to Home Screen'");
-                }
             }
         };
 
