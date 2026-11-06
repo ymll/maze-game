@@ -48,6 +48,40 @@
             50% { transform: translateY(-5px); }
         }
         .chick-bounce { animation: bounce 0.5s infinite; }
+
+        /* Critical-CSS fallback: if the Tailwind Play CDN is unavailable
+         * (e.g. an offline reload before it was cached), these keep the
+         * game correct — the win overlay stays hidden until a win, the
+         * install footer stays off-screen, and the toast stays invisible.
+         * Values match Tailwind's own utilities, so when the CDN does
+         * load it simply takes over; nothing here is removed. The CDN
+         * script itself is deliberately NOT precached in sw.js: it is
+         * cross-origin, and a failed precache must not break installation
+         * (see Fix 4 in sw.js). */
+        .hidden { display: none; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-center { justify-content: center; }
+        .min-h-screen { min-height: 100vh; }
+        .w-full { width: 100%; }
+        .max-w-md { max-width: 28rem; }
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .fixed { position: fixed; }
+        .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+        .bottom-0 { bottom: 0; }
+        .bottom-24 { bottom: 6rem; }
+        .left-0 { left: 0; }
+        .right-0 { right: 0; }
+        .left-1\/2 { left: 50%; }
+        .translate-y-full { transform: translateY(100%); }
+        .\-translate-x-1\/2 { transform: translateX(-50%); }
+        .opacity-0 { opacity: 0; }
+        .pointer-events-none { pointer-events: none; }
+        .z-10 { z-index: 10; }
+        .z-40 { z-index: 40; }
+        .z-50 { z-index: 50; }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-2 sm:p-4">
