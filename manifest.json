@@ -1,1 +1,10 @@
-{\n  "name": "Maze Game",\n  "short_name": "MazeGame",\n  "icons": [\n    {\n      "src": "icons/icon-192.png",\n      "sizes": "192x192",\n      "type": "image/png"\n    },\n    {\n      "src": "icons/icon-512.png",\n      "sizes": "512x512",\n      "type": "image/png"\n    }\n  ],\n  "start_url": "./index.html",\n  "display": "standalone",\n  "scope": "/",\n  "background_color": "#0f172a",\n  "theme_color": "#a855f7",\n  "screenshot": [\n    {\n      "src": "screenshots/screenshot-mobile-1.png",\n      "sizes": "375x667",\n      "type": "image/png"\n    },\n    {\n      "src": "screenshots/screenshot-mobile-2.png",\n      "sizes": "411x731",\n      "type": "image/png"\n    }\n  ]\n}
+{
+  "background_color": "#0f172a",
+  "description": "A kid-friendly maths maze game \u2014 drag the chick through the maze to the egg with the right answer.",
+  "display": "standalone",
+  "name": "Easter Chick Maze",
+  "orientation": "portrait",
+  "short_name": "EasterMaze",
+  "start_url": "./index.html",
+  "theme_color": "#a855f7"
+}

@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Easter Chick Maze</title>
-    
+    <meta name="description" content="Easter Chick Maze — a kid-friendly maths maze game. Drag the chick through the maze (or use arrow keys / WASD) to the egg with the right answer. Addition first, subtraction from level 3.">
+
     <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,8 +15,8 @@
     <!-- Cute Font -->
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;700&display=swap" rel="stylesheet">
     
-    <!-- Manifest Data URI -->
-    <link rel="manifest" href="data:application/manifest+json, %7B%22name%22%3A%22Easter%20Chick%20Maze%22%2C%22short_name%22%3A%22EasterMaze%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22portrait%22%2C%22background_color%22%3A%22%230f172a%22%2C%22theme_color%22%3A%22%230f172a%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F2663%2F2663067.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%22%7D%5D%7D">
+    <!-- Web app manifest (manifest.json in this repo — no icon files yet, see README) -->
+    <link rel="manifest" href="manifest.json">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -35,6 +36,7 @@
             box-shadow: 0 0 40px rgba(168, 85, 247, 0.2);
             max-width: 100%;
         }
+        canvas:focus-visible { outline: 3px solid #a855f7; outline-offset: 2px; }
         .ui-overlay { pointer-events: none; }
         .ui-overlay button, .ui-overlay .pointer-auto { pointer-events: auto; }
         .glow-text { text-shadow: 0 0 10px rgba(168, 85, 247, 0.8); }
@@ -56,7 +58,9 @@
             <h1 class="text-xl font-bold glow-text text-purple-400">Level <span id="level-display">1</span></h1>
         </div>
         <div class="text-right flex flex-col items-end">
-            <div class="text-[10px] font-semibold text-slate-400 uppercase">Best: <span id="best-level">1</span></div>
+            <div class="text-[10px] font-semibold text-slate-400 uppercase">Score: <span id="score-display">0</span></div>
+            <!-- "Best" = the furthest level reached (the level you are about to play after a win) -->
+            <div class="text-[10px] font-semibold text-slate-400 uppercase" title="Furthest level reached">Best level: <span id="best-level">1</span></div>
         </div>
     </div>
 
@@ -64,11 +68,12 @@
     <div class="w-full max-w-md bg-slate-800/80 rounded-2xl p-3 mb-3 border border-slate-700 text-center shadow-lg">
         <p class="text-slate-400 text-xs uppercase tracking-widest mb-1">Find the Easter Egg with the answer!</p>
         <div id="math-question" class="text-3xl font-bold text-white tracking-tight">? + ? = ?</div>
+        <p class="text-slate-400 text-xs mt-2">Drag the chick 🐥 through the maze — start by touching the chick. Or use arrow keys / WASD to hop one square at a time. Watch out for walls!</p>
     </div>
 
     <!-- Canvas Container -->
     <div id="canvas-wrapper" class="relative w-full max-w-md bg-slate-800/50 p-1 rounded-3xl border border-slate-700 flex justify-center">
-        <canvas id="gameCanvas"></canvas>
+        <canvas id="gameCanvas" tabindex="0" role="application" aria-label="Maze. Drag the chick to the egg with the right answer, or use arrow keys or WASD to move one square at a time."></canvas>
         
         <!-- Win Overlay -->
         <div id="overlay" class="absolute inset-0 flex items-center justify-center bg-slate-900/90 rounded-2xl hidden ui-overlay z-10">
@@ -110,7 +115,7 @@
             <span class="text-2xl">🥚</span>
             <div>
                 <p class="text-white font-bold text-sm">Add to Home Screen</p>
-                <p class="text-purple-100 text-[10px]">Play full screen for Easter!</p>
+                <p id="pwa-install-hint" class="text-purple-100 text-[10px]">Play full screen for Easter!</p>
             </div>
         </div>
         <div class="flex items-center gap-2">
@@ -127,11 +132,11 @@
     </div>
 
     <script>
+        // Real service worker (sw.js in this repo). The old code registered a
+        // Blob URL, which browsers reject for service workers, so it never
+        // actually registered — this one can.
         if ('serviceWorker' in navigator) {
-            const swCode = `self.addEventListener('fetch', (event) => { event.respondWith(fetch(event.request)); });`;
-            const blob = new Blob([swCode], { type: 'text/javascript' });
-            const url = URL.createObjectURL(blob);
-            navigator.serviceWorker.register(url).catch(() => {});
+            navigator.serviceWorker.register('sw.js').catch(() => {});
         }
 
         const canvas = document.getElementById('gameCanvas');
@@ -148,18 +153,42 @@
         const closePwaFooter = document.getElementById('close-pwa-footer');
         const installBtn = document.getElementById('install-btn');
         const controlsContainer = document.getElementById('controls-container');
+        const pwaInstallHint = document.getElementById('pwa-install-hint');
+        const scoreDisplay = document.getElementById('score-display');
 
         let level = 1;
+        // "Best" = furthest level reached. Stored as level+1 after a win
+        // (the level you are about to play), so 1 at the start is correct:
+        // you have reached level 1. Kept in the same localStorage key so
+        // existing saved bests still work.
         let bestLevel = parseInt(localStorage.getItem('mazeBestLevel')) || 1;
+        if (!Number.isFinite(bestLevel) || bestLevel < 1) bestLevel = 1;
+        let score = 0;
         let currentProblem = { q: "", a: 0, wrong: 0 };
         let deferredPrompt;
 
-        // PWA logic
+        // Platform detection (from PR #1, copilot/add-footer-for-pwa-install)
+        const isIOS = /iPhone|iPod/.test(navigator.userAgent);
+        const isIPadOS = /iPad/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+            window.navigator.standalone === true;
+
+        const IOS_FOOTER_DELAY_MS = 2000;
+
+        // PWA logic — Android: show footer when browser install prompt is available
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
             showPwaFooter();
         });
+
+        // iOS / iPadOS: show footer with step-by-step instructions if not already installed
+        if ((isIOS || isIPadOS) && !isStandalone) {
+            pwaInstallHint.textContent = 'Tap Share 📤 → "Add to Home Screen"';
+            installBtn.style.display = 'none';
+            setTimeout(showPwaFooter, IOS_FOOTER_DELAY_MS);
+        }
 
         function showPwaFooter() {
             pwaFooter.style.transform = 'translateY(0)';
@@ -171,48 +200,85 @@
             controlsContainer.style.marginBottom = '0px';
         }
 
+        // Android: directly trigger the native install prompt — no alert fallback
         installBtn.onclick = async () => {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
                 deferredPrompt = null;
                 hidePwaFooter();
-            } else {
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-                if (isIOS) {
-                    alert("Tap Share and 'Add to Home Screen' to play full screen! 📲");
-                } else {
-                    alert("Open browser settings and select 'Install' or 'Add to Home Screen'");
-                }
             }
         };
 
         closePwaFooter.onclick = hidePwaFooter;
 
+        // Egg colours. The correct and wrong eggs are coloured from the same
+        // palette, randomly assigned each round, so colour can never leak
+        // the answer (previously correct was always pink, wrong always blue).
+        const EGG_PALETTE = [
+            ['#f472b6', '#db2777'], // pink
+            ['#60a5fa', '#2563eb'], // blue
+            ['#4ade80', '#16a34a'], // green
+            ['#fb923c', '#ea580c'], // orange
+            ['#c084fc', '#9333ea'], // purple
+            ['#facc15', '#ca8a04']  // yellow
+        ];
+        let correctEggColors = EGG_PALETTE[0];
+        let wrongEggColors = EGG_PALETTE[1];
+
+        function pickEggColors() {
+            const i = Math.floor(Math.random() * EGG_PALETTE.length);
+            let j = Math.floor(Math.random() * EGG_PALETTE.length);
+            while (j === i) j = Math.floor(Math.random() * EGG_PALETTE.length);
+            // Randomly assign the two colours so neither colour means "right".
+            if (Math.random() > 0.5) {
+                correctEggColors = EGG_PALETTE[i];
+                wrongEggColors = EGG_PALETTE[j];
+            } else {
+                correctEggColors = EGG_PALETTE[j];
+                wrongEggColors = EGG_PALETTE[i];
+            }
+        }
+
         function generateProblem() {
-            const max = Math.min(5 + level, 15);
-            const a = Math.floor(Math.random() * max) + 1;
-            const b = Math.floor(Math.random() * max) + 1;
-            const sum = a + b;
-            let wrong = sum + (Math.random() > 0.5 ? 1 : -1);
-            if (wrong < 0 || wrong === sum) wrong = sum + 2;
-            currentProblem = { q: `${a} + ${b}`, a: sum, wrong: wrong };
+            // Levels 1–2: addition only. Level 3+: addition and subtraction
+            // mixed, so the game keeps growing with the maze.
+            const isSubtraction = level >= 3 && Math.random() < 0.5;
+            const max = Math.min(5 + level, 20);
+            let a, b, answer, q;
+            if (isSubtraction) {
+                a = Math.floor(Math.random() * (max + 5)) + 2; // at least 2
+                b = Math.floor(Math.random() * (a - 1)) + 1;   // 1..a-1, answer >= 1
+                answer = a - b;
+                q = `${a} - ${b}`;
+            } else {
+                a = Math.floor(Math.random() * max) + 1;
+                b = Math.floor(Math.random() * max) + 1;
+                answer = a + b;
+                q = `${a} + ${b}`;
+            }
+            let wrong = answer + (Math.random() > 0.5 ? 1 : -1);
+            if (wrong < 0 || wrong === answer) wrong = answer + 2;
+            currentProblem = { q: q, a: answer, wrong: wrong };
             mathQuestionEl.textContent = `${currentProblem.q} = ?`;
+            pickEggColors();
         }
 
         function updateStatsDisplay() {
             bestLevelDisplay.textContent = bestLevel;
+            scoreDisplay.textContent = score;
         }
         updateStatsDisplay();
 
         let mazeWidth, mazeHeight, cellSize, grid = [], playerPath = [], isTracing = false, gameActive = true;
         let startCell, correctCell, wrongCell;
+        let playerCell = { r: 0, c: 0 }; // current cell, kept in sync for keyboard moves
 
         const COLORS = {
             wall: '#475569',
             path: '#0f172a',
-            correctEgg: ['#f472b6', '#db2777'], // Pink
-            wrongEgg: ['#60a5fa', '#2563eb'],   // Blue
+            // Egg colours are picked per round (see pickEggColors) — there is
+            // deliberately no fixed "correct" or "wrong" colour here.
             trail: 'rgba(168, 85, 247, 0.2)'
         };
 
@@ -240,22 +306,50 @@
             ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
         }
 
+        // Cell size for a maze of cols x rows in the current viewport.
+        // Clamped so a short screen (e.g. landscape phone) can never make
+        // it tiny or negative — the old code used innerHeight - 380 with
+        // no floor, so cellSize could collapse on short viewports.
+        function computeCellSize(cols, rows) {
+            const availW = Math.max(200, Math.min(window.innerWidth - 24, 450));
+            const availH = Math.max(200, Math.min(window.innerHeight - 340, 600));
+            return Math.max(12, Math.floor(Math.min(availW / cols, availH / rows)));
+        }
+
+        // Re-render the SAME maze at the new size (resize / rotate).
+        // The old code called initGame() on resize, regenerating the maze
+        // and losing the level. This only rescales the canvas and the
+        // player's trail, keeping grid, problem, level and position.
+        function resizeCanvas() {
+            if (!grid || grid.length === 0 || !mazeWidth || !mazeHeight) return;
+            const oldSize = cellSize;
+            cellSize = computeCellSize(mazeWidth, mazeHeight);
+            canvas.width = mazeWidth * cellSize;
+            canvas.height = mazeHeight * cellSize;
+            if (oldSize && oldSize !== cellSize) {
+                const scale = cellSize / oldSize;
+                playerPath = playerPath.map(p => ({ x: p.x * scale, y: p.y * scale }));
+                playerCell = {
+                    r: Math.min(Math.max(0, Math.floor(playerPath[playerPath.length - 1].y / cellSize)), mazeHeight - 1),
+                    c: Math.min(Math.max(0, Math.floor(playerPath[playerPath.length - 1].x / cellSize)), mazeWidth - 1)
+                };
+            }
+            draw();
+        }
+
         function initGame() {
             generateProblem();
             const cols = Math.min(7 + Math.floor(level/3), 14);
             const rows = Math.min(9 + Math.floor(level/3), 18);
-            
-            const padding = 24;
-            const availW = Math.min(window.innerWidth - padding, 450);
-            const availH = Math.min(window.innerHeight - 380, 600);
-            
-            cellSize = Math.floor(Math.min(availW / cols, availH / rows));
+
+            cellSize = computeCellSize(cols, rows);
             canvas.width = cols * cellSize;
             canvas.height = rows * cellSize;
             mazeWidth = cols;
             mazeHeight = rows;
 
             generateMaze();
+            playerCell = { r: startCell.r, c: startCell.c };
             playerPath = [{ x: startCell.c * cellSize + cellSize/2, y: startCell.r * cellSize + cellSize/2 }];
             gameActive = true;
             overlay.classList.add('hidden');
@@ -375,8 +469,8 @@
             ctx.fillStyle = COLORS.path;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            drawEgg(correctCell.c * cellSize, correctCell.r * cellSize, cellSize, cellSize, COLORS.correctEgg, currentProblem.a);
-            drawEgg(wrongCell.c * cellSize, wrongCell.r * cellSize, cellSize, cellSize, COLORS.wrongEgg, currentProblem.wrong);
+            drawEgg(correctCell.c * cellSize, correctCell.r * cellSize, cellSize, cellSize, correctEggColors, currentProblem.a);
+            drawEgg(wrongCell.c * cellSize, wrongCell.r * cellSize, cellSize, cellSize, wrongEggColors, currentProblem.wrong);
 
             for (let r = 0; r < mazeHeight; r++) {
                 for (let c = 0; c < mazeWidth; c++) grid[r][c].draw();
@@ -419,6 +513,43 @@
             return false;
         }
 
+        function showMessage(text, ms) {
+            messageBox.textContent = text;
+            messageBox.style.opacity = '1';
+            setTimeout(() => {
+                messageBox.textContent = "Oops! Watch out for the walls! 🧱";
+                messageBox.style.opacity = '0';
+            }, ms || 1500);
+        }
+
+        function resetPlayerToStart() {
+            playerCell = { r: startCell.r, c: startCell.c };
+            playerPath = [{ x: startCell.c * cellSize + cellSize/2, y: startCell.r * cellSize + cellSize/2 }];
+        }
+
+        // Shared by drag and keyboard moves: returns true if an egg was reached.
+        function checkReachedEgg(col, row) {
+            if (col === wrongCell.c && row === wrongCell.r) {
+                isTracing = false;
+                showMessage("Oops! That egg is empty! 🥚");
+                resetPlayerToStart();
+                draw();
+                return true;
+            }
+            if (col === correctCell.c && row === correctCell.r) {
+                isTracing = false; gameActive = false;
+                score += 10; // +10 per completed level
+                if (level >= bestLevel) {
+                    bestLevel = level + 1;
+                    localStorage.setItem('mazeBestLevel', bestLevel);
+                }
+                updateStatsDisplay();
+                overlay.classList.remove('hidden');
+                return true;
+            }
+            return false;
+        }
+
         function handleMove(e) {
             if (!isTracing || !gameActive) return;
             const rect = canvas.getBoundingClientRect();
@@ -431,9 +562,8 @@
 
             if (checkCollision(x, y)) {
                 isTracing = false;
-                messageBox.style.opacity = '1';
-                setTimeout(() => messageBox.style.opacity = '0', 1500);
-                playerPath = [{ x: startCell.c * cellSize + cellSize/2, y: startCell.r * cellSize + cellSize/2 }];
+                showMessage("Oops! Watch out for the walls! 🧱");
+                resetPlayerToStart();
                 draw();
                 return;
             }
@@ -442,29 +572,45 @@
             // draw() is now handled by rAF loop while isTracing
 
             const col = Math.floor(x / cellSize), row = Math.floor(y / cellSize);
-            
-            if (col === wrongCell.c && row === wrongCell.r) {
-                isTracing = false;
-                messageBox.textContent = "Oops! That egg is empty! 🥚";
-                messageBox.style.opacity = '1';
-                setTimeout(() => {
-                    messageBox.textContent = "Oops! Watch out for the walls! 🧱";
-                    messageBox.style.opacity = '0';
-                }, 1500);
-                playerPath = [{ x: startCell.c * cellSize + cellSize/2, y: startCell.r * cellSize + cellSize/2 }];
-                draw();
-            }
-
-            if (col === correctCell.c && row === correctCell.r) {
-                isTracing = false; gameActive = false;
-                if (level >= bestLevel) {
-                    bestLevel = level + 1;
-                    localStorage.setItem('mazeBestLevel', bestLevel);
-                    updateStatsDisplay();
-                }
-                overlay.classList.remove('hidden');
-            }
+            playerCell = { r: row, c: col };
+            checkReachedEgg(col, row);
         }
+
+        // Keyboard play: hop one cell at a time, respecting walls (when the
+        // Walls toggle is on). Shared egg logic with drag, above.
+        function tryStep(dr, dc) {
+            if (!gameActive || overlay.classList.contains('hidden') === false) return;
+            const nr = playerCell.r + dr, nc = playerCell.c + dc;
+            if (nr < 0 || nr >= mazeHeight || nc < 0 || nc >= mazeWidth) return;
+            if (collisionToggle.checked) {
+                const cell = grid[playerCell.r][playerCell.c];
+                // walls: [top, right, bottom, left]
+                if (dr === -1 && cell.walls[0]) return;
+                if (dr === 1 && cell.walls[2]) return;
+                if (dc === -1 && cell.walls[3]) return;
+                if (dc === 1 && cell.walls[1]) return;
+            }
+            playerCell = { r: nr, c: nc };
+            playerPath.push({ x: nc * cellSize + cellSize / 2, y: nr * cellSize + cellSize / 2 });
+            draw();
+            checkReachedEgg(nc, nr);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            // Don't steal keys from buttons / the toggle / the overlay button.
+            const tag = (e.target && e.target.tagName) || '';
+            if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            const key = e.key;
+            const steps = {
+                ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1],
+                w: [-1, 0], s: [1, 0], a: [0, -1], d: [0, 1],
+                W: [-1, 0], S: [1, 0], A: [0, -1], D: [0, 1]
+            };
+            const step = steps[key];
+            if (!step) return;
+            e.preventDefault();
+            tryStep(step[0], step[1]);
+        });
 
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
@@ -494,14 +640,20 @@
         });
 
         window.addEventListener('mousemove', handleMove);
-        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('touchmove', (e) => { if (isTracing) e.preventDefault(); handleMove(e); }, { passive: false });
         window.addEventListener('mouseup', () => isTracing = false);
         window.addEventListener('touchend', () => isTracing = false);
 
         nextBtn.onclick = () => { level++; initGame(); };
         resetBtn.onclick = initGame;
         window.onload = initGame;
-        window.onresize = () => { if (gameActive) initGame(); };
+        // Resize / rotate: re-render the same maze, don't start a new game.
+        // Debounced so a drag-resize doesn't re-render dozens of times.
+        let resizeTimer;
+        window.onresize = () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(resizeCanvas, 150);
+        };
     </script>
 </body>
 </html>
