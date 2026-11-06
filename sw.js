@@ -23,7 +23,10 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      // Only clean up this game's own old caches. Cache Storage is
+      // shared across every service-worker scope on ymll.github.io, so
+      // deleting every other key would wipe other project sites' data.
+      Promise.all(keys.filter((k) => k.startsWith('easter-chick-maze-') && k !== CACHE_NAME).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
