@@ -9,8 +9,13 @@ const CACHE_NAME = 'easter-chick-maze-v1';
 const APP_SHELL = ['index.html', 'manifest.json', './'];
 
 self.addEventListener('install', (event) => {
+  // No .catch() here on purpose: if caching the app shell fails, the
+  // install must fail so the browser retries later. Swallowing the
+  // rejection would activate a worker with an empty cache, and the
+  // fetch handler never fills it, so offline loading would stay broken
+  // until the worker file changes.
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).catch(() => {})
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
   );
   self.skipWaiting();
 });
