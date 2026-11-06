@@ -511,7 +511,11 @@
             if (col < 0 || col >= mazeWidth || row < 0 || row >= mazeHeight) return true;
             const cell = grid[row][col];
             const px = x % cellSize, py = y % cellSize;
-            const b = 8; // thicker walls collision for better feel
+            // Collision buffer scales with cellSize: a fixed 8px buffer on
+            // each side covers the whole cell once cells shrink (e.g. 14px
+            // cells on a short landscape screen at high levels), making
+            // corridors impossible to drag through. Keep a usable interior.
+            const b = Math.min(8, cellSize / 4);
             if (cell.walls[0] && py < b) return true;
             if (cell.walls[1] && px > cellSize - b) return true;
             if (cell.walls[2] && py > cellSize - b) return true;
