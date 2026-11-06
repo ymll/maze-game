@@ -570,6 +570,12 @@
             const x = (clientX - rect.left) * scaleX;
             const y = (clientY - rect.top) * scaleY;
 
+            // Ignore drags outside the canvas, even with Walls off:
+            // accepting them would set playerCell to an invalid row/column,
+            // and a later Walls-on arrow key would crash in tryStep
+            // (grid[-1] is undefined). Just don't move.
+            if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
+
             if (checkCollision(x, y)) {
                 isTracing = false;
                 showMessage("Oops! Watch out for the walls! 🧱");
@@ -590,6 +596,14 @@
         // Walls toggle is on). Shared egg logic with drag, above.
         function tryStep(dr, dc) {
             if (!gameActive || overlay.classList.contains('hidden') === false) return;
+            // Defensive: never index the grid from an invalid playerCell.
+            // handleMove already rejects off-canvas drags, but a stale or
+            // out-of-bounds cell must reset the chick, not throw.
+            if (playerCell.r < 0 || playerCell.r >= mazeHeight || playerCell.c < 0 || playerCell.c >= mazeWidth) {
+                resetPlayerToStart();
+                draw();
+                return;
+            }
             const nr = playerCell.r + dr, nc = playerCell.c + dc;
             if (nr < 0 || nr >= mazeHeight || nc < 0 || nc >= mazeWidth) return;
             if (collisionToggle.checked) {
