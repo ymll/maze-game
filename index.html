@@ -161,7 +161,13 @@
         // (the level you are about to play), so 1 at the start is correct:
         // you have reached level 1. Kept in the same localStorage key so
         // existing saved bests still work.
-        let bestLevel = parseInt(localStorage.getItem('mazeBestLevel')) || 1;
+        // localStorage can throw (private mode, sandboxed / opaque origins)
+        // and an unguarded read here would kill the whole script before
+        // initGame runs, leaving "? + ? = ?" and a blank canvas.
+        let bestLevel = 1;
+        try {
+            bestLevel = parseInt(localStorage.getItem('mazeBestLevel')) || 1;
+        } catch (e) { bestLevel = 1; }
         if (!Number.isFinite(bestLevel) || bestLevel < 1) bestLevel = 1;
         let score = 0;
         let currentProblem = { q: "", a: 0, wrong: 0 };
@@ -541,7 +547,7 @@
                 score += 10; // +10 per completed level
                 if (level >= bestLevel) {
                     bestLevel = level + 1;
-                    localStorage.setItem('mazeBestLevel', bestLevel);
+                    try { localStorage.setItem('mazeBestLevel', bestLevel); } catch (e) {}
                 }
                 updateStatsDisplay();
                 overlay.classList.remove('hidden');
