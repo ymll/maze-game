@@ -564,6 +564,7 @@
 
             generateMaze();
             followWaypoints = [];
+            pointerTrail = [];
             hideWallBanner();
             playerCell = { r: startCell.r, c: startCell.c };
             playerPath = [{ x: startCell.c * cellSize + cellSize/2, y: startCell.r * cellSize + cellSize/2 }];
@@ -832,6 +833,7 @@
 
         function resetPlayerToStart() {
             followWaypoints = [];
+            pointerTrail = [];
             playerCell = { r: startCell.r, c: startCell.c };
             playerPath = [{ x: startCell.c * cellSize + cellSize/2, y: startCell.r * cellSize + cellSize/2 }];
         }
@@ -861,10 +863,12 @@
 
         // ---- Walls-off path following ---------------------------------
         // With Walls off, touching a wall no longer ends the run — but the
-        // chick still may never cross a wall. Dragging steers it along open
-        // corridors toward the pointer (breadth-first search), a little
-        // each animation frame, so it glides along the path instead of
-        // cutting straight through walls to the egg.
+        // chick still may never cross a wall. Dragging steers it along the
+        // corridors the pointer itself travelled (see pointerTrail in
+        // setFollowTarget), a little each animation frame, so it glides
+        // instead of cutting straight through walls to the egg. If the
+        // pointer jumps across a wall, the chick stops and waits instead
+        // of walking the long way round.
         let followWaypoints = []; // [{x, y}] pixel targets to walk to, in order
 
         function canStep(fromR, fromC, toR, toC) {
@@ -914,55 +918,25 @@
             return null;
         }
 
-        // Closest cell the chick can actually reach, with its path.
-        // Used when the pointer sits somewhere unreachable without
-        // crossing a wall, or when the only route there runs through a
-        // blocked cell (the wrong egg): the chick walks to the nearest
-        // corridor cell it can reach and waits there instead of cutting
-        // through.
-        function closestReachablePath(fromR, fromC, toR, toC, blocked) {
-            const key = (r, c) => r + ',' + c;
-            const prev = new Map();
-            const dist = new Map();
-            const queue = [[fromR, fromC]];
-            prev.set(key(fromR, fromC), null);
-            dist.set(key(fromR, fromC), 0);
-            const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-            while (queue.length > 0) {
-                const [r, c] = queue.shift();
-                for (const [dr, dc] of dirs) {
-                    const nr = r + dr, nc = c + dc;
-                    if (!canStep(r, c, nr, nc)) continue;
-                    const k = key(nr, nc);
-                    if (prev.has(k)) continue;
-                    if (blocked && blocked.has(k)) continue;
-                    prev.set(k, [r, c]);
-                    dist.set(k, dist.get(key(r, c)) + 1);
-                    queue.push([nr, nc]);
-                }
-            }
-            let best = null, bestScore = Infinity;
-            for (const k of prev.keys()) {
-                const [r, c] = k.split(',').map(Number);
-                const score = Math.abs(r - toR) + Math.abs(c - toC);
-                if (score < bestScore || (score === bestScore && dist.get(k) < dist.get(key(best.r, best.c)))) {
-                    best = { r, c };
-                    bestScore = score;
-                }
-            }
-            const path = [];
-            let cur = [best.r, best.c];
-            while (cur) {
-                path.unshift({ r: cur[0], c: cur[1] });
-                cur = prev.get(key(cur[0], cur[1]));
-            }
-            path.shift(); // drop the start cell
-            return { cell: best, path };
-        }
+        // The cells the pointer has actually travelled through during this
+        // drag, in order. The chick only ever follows the pointer along
+        // these cells — so when the pointer jumps across a wall, the chick
+        // stops and waits instead of walking the long way round to it.
+        // A drag always starts at the chick, so the trail starts there.
+        let pointerTrail = [];
+        // Pointer moves arrive many times a second, so the pointer moves at
+        // most a couple of cells between two of them. If the gap to the new
+        // pointer cell is bigger than this, the pointer jumped (across a
+        // wall, or across the maze) — the trail does not extend.
+        const MAX_BRIDGE_STEPS = 3;
 
-        // Point the chick at (x, y): work out the corridor route there and
-        // queue it as waypoints. The chick walks the queue a little per
-        // frame (see advanceFollow), so it glides instead of teleporting.
+        // Point the chick at (x, y): extend the pointer's trail through the
+        // corridors it actually travelled, then queue the corridor route to
+        // the end of the trail as waypoints. The chick walks the queue a
+        // little per frame (see advanceFollow), so it glides instead of
+        // teleporting. If the pointer jumped across a wall, the trail does
+        // not extend and the chick stays where it is until the pointer
+        // comes back to a cell it can reach through the corridors.
         function setFollowTarget(x, y) {
             const toC = Math.floor(x / cellSize), toR = Math.floor(y / cellSize);
             // The wrong egg is never a stepping stone: the chick only goes
@@ -973,14 +947,25 @@
             if (!(toR === wrongCell.r && toC === wrongCell.c)) {
                 blocked.add(wrongCell.r + ',' + wrongCell.c);
             }
-            let path = findPath(playerCell.r, playerCell.c, toR, toC, blocked);
-            let dest = { r: toR, c: toC };
-            if (!path) {
-                const best = closestReachablePath(playerCell.r, playerCell.c, toR, toC, blocked);
-                path = best.path;
-                dest = best.cell;
+            if (pointerTrail.length === 0) {
+                pointerTrail.push({ r: playerCell.r, c: playerCell.c });
             }
-            followWaypoints = path.map(p => ({
+            const last = pointerTrail[pointerTrail.length - 1];
+            if (!(last.r === toR && last.c === toC)) {
+                const bridge = findPath(last.r, last.c, toR, toC, blocked);
+                if (bridge && bridge.length <= MAX_BRIDGE_STEPS) {
+                    pointerTrail.push(...bridge);
+                }
+                // Otherwise the pointer jumped across a wall: the trail
+                // stays where it was, and the chick waits.
+            }
+            const dest = pointerTrail[pointerTrail.length - 1];
+            const destBlocked = new Set();
+            if (!(dest.r === wrongCell.r && dest.c === wrongCell.c)) {
+                destBlocked.add(wrongCell.r + ',' + wrongCell.c);
+            }
+            const path = findPath(playerCell.r, playerCell.c, dest.r, dest.c, destBlocked);
+            followWaypoints = (path || []).map(p => ({
                 x: p.c * cellSize + cellSize / 2,
                 y: p.r * cellSize + cellSize / 2
             }));
@@ -1040,8 +1025,9 @@
             }
 
             if (!collisionToggle.checked) {
-                // Walls off: never cut through a wall. Steer along the
-                // corridors toward the pointer instead.
+                // Walls off: never cut through a wall, and never walk a
+                // long detour. Follow the pointer's trail instead — the
+                // chick stops and waits if the pointer jumps across a wall.
                 setFollowTarget(x, y);
                 advanceFollow();
                 return;
@@ -1110,6 +1096,7 @@
             const last = playerPath[playerPath.length - 1];
             if (Math.hypot(x - last.x, y - last.y) < cellSize) {
                 followWaypoints = [];
+                pointerTrail = [];
                 hideWallBanner();
                 hideMessage();
                 isTracing = true;
@@ -1127,6 +1114,7 @@
             const last = playerPath[playerPath.length - 1];
             if (Math.hypot(x - last.x, y - last.y) < cellSize) {
                 followWaypoints = [];
+                pointerTrail = [];
                 hideWallBanner();
                 hideMessage();
                 isTracing = true;
@@ -1143,7 +1131,7 @@
         // Blur the toggle after a mouse click: otherwise focus stays on the
         // INPUT and the keydown handler ignores arrow keys until the user
         // clicks elsewhere. The typing guard above is untouched.
-        collisionToggle.addEventListener('change', () => { followWaypoints = []; collisionToggle.blur(); });
+        collisionToggle.addEventListener('change', () => { followWaypoints = []; pointerTrail = []; collisionToggle.blur(); });
 
         // Read-only handle for automated tests (used by the harness that
         // checks path-following, themes and the wall banner). Harmless in
@@ -1152,6 +1140,7 @@
             get state() {
                 return { playerCell, cellSize, mazeWidth, mazeHeight, correctCell, wrongCell, startCell, followWaypoints, level, score, gameActive };
             },
+            get trail() { return pointerTrail; },
             findPath, canStep,
             get grid() { return grid; },
             get theme() { return currentTheme; },

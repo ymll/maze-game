@@ -17,8 +17,9 @@ Play it live at https://ymll.github.io/maze-game
   Walls toggle on) and you go back to the start too — a big note pops up
   to explain what happened and that turning Walls off helps. Turn Walls
   off for an easier game: touching a wall no longer sends you back, and
-  the chick follows the corridors toward your finger instead of cutting
-  through walls. Arrow keys never cross a wall either way — with Walls
+  the chick follows your finger through the corridors — but if your finger
+  crosses a wall, the chick stops and waits instead of walking the long
+  way round. Arrow keys never cross a wall either way — with Walls
   off they just stop at the wall.
 - Themes: pick Easter, Christmas, Halloween or Fall from the Theme row.
   Each theme changes the player, the target (egg / gift / pumpkin /
