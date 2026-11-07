@@ -14,11 +14,12 @@ Play it live at https://ymll.github.io/maze-game
   Start dragging by touching the chick itself. Or use **arrow keys / WASD**
   to move one square at a time — walls block you, just like when dragging.
 - Reach the wrong egg and you go back to the start. Hit a wall (with the
-  Walls toggle on) and you go back to the start too. Turn Walls off for
-  an easier game: touching a wall no longer sends you back, and the chick
-  follows the corridors toward your finger instead of cutting through
-  walls. Arrow keys never cross a wall either way — with Walls off they
-  just stop at the wall.
+  Walls toggle on) and you go back to the start too — a big note pops up
+  to explain what happened and that turning Walls off helps. Turn Walls
+  off for an easier game: touching a wall no longer sends you back, and
+  the chick follows the corridors toward your finger instead of cutting
+  through walls. Arrow keys never cross a wall either way — with Walls
+  off they just stop at the wall.
 - Themes: pick Easter, Christmas, Halloween or Fall from the Theme row.
   Each theme changes the player, the target (egg / gift / pumpkin /
   apple), the colours and the wording. Your choice is saved in your

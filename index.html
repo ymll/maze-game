@@ -122,6 +122,16 @@
                 </button>
             </div>
         </div>
+
+        <!-- Wall-hit notice: plain-language explanation, shown every time
+             a wall ends the run with Walls on. It never blocks play
+             (pointer-events-none) and fades away on its own. -->
+        <div id="wall-banner" class="absolute inset-0 flex items-center justify-center hidden z-10 pointer-events-none">
+            <div class="mx-4 max-w-xs rounded-2xl bg-rose-600/95 px-4 py-3 text-center shadow-2xl">
+                <p class="text-lg font-bold text-white">💥 Ouch! You hit a wall!</p>
+                <p id="wall-banner-text" class="text-sm text-rose-100 mt-1">Walls are on, so bumping a wall sends you back to the start. Tip: turn Walls off — then the chick follows the paths and walls can't hurt you.</p>
+            </div>
+        </div>
     </div>
 
     <!-- Controls -->
@@ -203,6 +213,9 @@
         const levelHeadingEl = document.getElementById('level-heading');
         const pwaIconEl = document.getElementById('pwa-icon');
         const themePickerEl = document.getElementById('theme-picker');
+        const wallBanner = document.getElementById('wall-banner');
+        const wallBannerText = document.getElementById('wall-banner-text');
+        let wallBannerTimer; // declared up here: applyTheme may show the banner before the helpers below run
 
         let level = 1;
         // "Best" = furthest level reached. Stored as level+1 after a win
@@ -418,6 +431,8 @@
             document.querySelectorAll('#theme-picker .theme-btn').forEach(btn => {
                 btn.setAttribute('aria-pressed', btn.dataset.theme === id ? 'true' : 'false');
             });
+            // If the wall notice is up, reword it for the new theme.
+            if (!wallBanner.classList.contains('hidden')) showWallBanner();
             pickEggColors();
             if (grid && grid.length) draw();
         }
@@ -549,6 +564,7 @@
 
             generateMaze();
             followWaypoints = [];
+            hideWallBanner();
             playerCell = { r: startCell.r, c: startCell.c };
             playerPath = [{ x: startCell.c * cellSize + cellSize/2, y: startCell.r * cellSize + cellSize/2 }];
             gameActive = true;
@@ -789,6 +805,21 @@
             }, ms || 1500);
         }
 
+        // Wall-hit feedback. A first-time player can't tell why the run
+        // just ended, so say it plainly, right over the maze, every time
+        // it happens: you hit a wall, Walls are on, and turning Walls off
+        // lets you travel the corridors without dying on a wall.
+        function showWallBanner() {
+            wallBannerText.textContent = `Walls are on, so bumping a wall sends you back to the start. Tip: turn Walls off — then the ${theme().playerName} follows the paths and walls can't hurt you.`;
+            wallBanner.classList.remove('hidden');
+            clearTimeout(wallBannerTimer);
+            wallBannerTimer = setTimeout(() => wallBanner.classList.add('hidden'), 4500);
+        }
+        function hideWallBanner() {
+            wallBanner.classList.add('hidden');
+            clearTimeout(wallBannerTimer);
+        }
+
         function resetPlayerToStart() {
             followWaypoints = [];
             playerCell = { r: startCell.r, c: startCell.c };
@@ -992,7 +1023,7 @@
 
             if (checkCollision(x, y)) {
                 isTracing = false;
-                showMessage("Oops! Watch out for the walls! 🧱");
+                showWallBanner();
                 resetPlayerToStart();
                 draw();
                 return;
@@ -1068,6 +1099,7 @@
             const last = playerPath[playerPath.length - 1];
             if (Math.hypot(x - last.x, y - last.y) < cellSize) {
                 followWaypoints = [];
+                hideWallBanner();
                 isTracing = true;
                 requestAnimationFrame(draw);
             }
@@ -1083,6 +1115,7 @@
             const last = playerPath[playerPath.length - 1];
             if (Math.hypot(x - last.x, y - last.y) < cellSize) {
                 followWaypoints = [];
+                hideWallBanner();
                 isTracing = true;
                 requestAnimationFrame(draw);
             }
