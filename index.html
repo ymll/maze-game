@@ -110,7 +110,7 @@
         <div class="flex items-center gap-3 bg-slate-800/80 px-4 py-2 rounded-full border border-slate-700 shadow-inner min-h-[44px]">
             <span class="text-sm font-medium text-slate-300">🧱 Walls</span>
             <div class="relative inline-block w-10 align-middle select-none">
-                <input type="checkbox" name="toggle" id="collision-toggle" checked class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all"/>
+                <input type="checkbox" name="toggle" id="collision-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all"/>
                 <label for="collision-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-600 cursor-pointer"></label>
             </div>
         </div>
@@ -221,6 +221,14 @@
         const wallBanner = document.getElementById('wall-banner');
         const wallBannerText = document.getElementById('wall-banner-text');
         let wallBannerTimer; // declared up here: applyTheme may show the banner before the helpers below run
+
+        // Walls are OFF by default on a first visit: new players travel
+        // the corridors without dying on a wall. A saved choice wins —
+        // the toggle writes 'on'/'off' to localStorage on every change.
+        try {
+            const savedWalls = localStorage.getItem('mazeWalls');
+            collisionToggle.checked = savedWalls === 'on';
+        } catch (e) { collisionToggle.checked = false; }
 
         let level = 1;
         // "Best" = furthest level reached. Stored as level+1 after a win
@@ -1178,7 +1186,11 @@
         // Blur the toggle after a mouse click: otherwise focus stays on the
         // INPUT and the keydown handler ignores arrow keys until the user
         // clicks elsewhere. The typing guard above is untouched.
-        collisionToggle.addEventListener('change', () => { followWaypoints = []; pointerTrail = []; collisionToggle.blur(); });
+        collisionToggle.addEventListener('change', () => {
+            followWaypoints = []; pointerTrail = [];
+            try { localStorage.setItem('mazeWalls', collisionToggle.checked ? 'on' : 'off'); } catch (e) {}
+            collisionToggle.blur();
+        });
 
         // Read-only handle for automated tests (used by the harness that
         // checks path-following, themes and the wall banner). Harmless in
