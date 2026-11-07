@@ -43,8 +43,10 @@
         .toggle-checkbox:checked { right: 0; border-color: var(--accent, #a855f7); }
         .toggle-checkbox:checked + .toggle-label { background-color: var(--accent, #a855f7); }
         /* Theme dropdown: a native <select> keeps it compact on a phone
-         * and opens the system's own picker. */
-        #theme-picker { max-width: 136px; padding: 3px 6px; border-radius: 9999px; font-size: 12px; font-weight: 600; color: #e2e8f0; background-color: #1e293b; border: 1px solid #334155; cursor: pointer; }
+         * and opens the system's own picker. It lives in the top toolbar
+         * and is at least 44px tall so it is easy to tap (16px text also
+         * stops iOS zooming in on focus). */
+        #theme-picker { max-width: 180px; min-height: 44px; padding: 10px 12px; border-radius: 9999px; font-size: 16px; font-weight: 600; color: #e2e8f0; background-color: #1e293b; border: 1px solid #334155; cursor: pointer; }
         #theme-picker:focus { outline: 2px solid var(--accent, #a855f7); outline-offset: 1px; }
         
         @keyframes bounce {
@@ -102,6 +104,19 @@
         </div>
     </div>
 
+    <!-- Top controls: Walls toggle + theme picker, up here (not at the
+         bottom of the page) so both are easy to reach and tap. -->
+    <div id="controls-container" class="w-full max-w-md mt-1 mb-3 flex items-center justify-center gap-3 flex-wrap">
+        <div class="flex items-center gap-3 bg-slate-800/80 px-4 py-2 rounded-full border border-slate-700 shadow-inner min-h-[44px]">
+            <span class="text-sm font-medium text-slate-300">🧱 Walls</span>
+            <div class="relative inline-block w-10 align-middle select-none">
+                <input type="checkbox" name="toggle" id="collision-toggle" checked class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all"/>
+                <label for="collision-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-600 cursor-pointer"></label>
+            </div>
+        </div>
+        <select id="theme-picker" aria-label="Choose a theme"></select>
+    </div>
+
     <!-- Math Question Area -->
     <div class="w-full max-w-md bg-slate-800/80 rounded-2xl p-3 mb-3 border border-slate-700 text-center shadow-lg">
         <p id="target-prompt" class="text-slate-400 text-xs uppercase tracking-widest mb-1">Find the Easter Egg with the answer!</p>
@@ -137,16 +152,8 @@
     </div>
 
     <!-- Controls -->
-    <div id="controls-container" class="w-full max-w-md mt-4 flex flex-col items-center gap-3 transition-all">
+    <div class="w-full max-w-md mt-4 flex flex-col items-center gap-3 transition-all">
         <div class="flex items-center gap-4 sm:gap-6">
-            <div class="flex items-center gap-3 bg-slate-800/80 px-4 py-2 rounded-full border border-slate-700 shadow-inner">
-                <span class="text-sm font-medium text-slate-300">🧱 Walls</span>
-                <div class="relative inline-block w-10 align-middle select-none">
-                    <input type="checkbox" name="toggle" id="collision-toggle" checked class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all"/>
-                    <label for="collision-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-600 cursor-pointer"></label>
-                </div>
-            </div>
-            
             <button id="reset-btn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 border border-slate-600">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
@@ -154,10 +161,6 @@
                 </svg>
                 Reset
             </button>
-        </div>
-        <div class="flex items-center gap-2">
-            <span class="text-xs font-medium text-slate-400">Theme</span>
-            <select id="theme-picker" aria-label="Choose a theme"></select>
         </div>
     </div>
 
@@ -204,7 +207,7 @@
         const pwaFooter = document.getElementById('pwa-footer');
         const closePwaFooter = document.getElementById('close-pwa-footer');
         const installBtn = document.getElementById('install-btn');
-        const controlsContainer = document.getElementById('controls-container');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
         const pwaInstallHint = document.getElementById('pwa-install-hint');
         const scoreDisplay = document.getElementById('score-display');
         const targetPromptEl = document.getElementById('target-prompt');
@@ -261,12 +264,14 @@
 
         function showPwaFooter() {
             pwaFooter.style.transform = 'translateY(0)';
-            controlsContainer.style.marginBottom = '80px';
+            // The controls are at the top now, so lift the canvas (the
+            // bottom-most content) above the footer instead.
+            canvasWrapper.style.marginBottom = '80px';
         }
 
         function hidePwaFooter() {
             pwaFooter.style.transform = 'translateY(100%)';
-            controlsContainer.style.marginBottom = '0px';
+            canvasWrapper.style.marginBottom = '0px';
         }
 
         // Android: directly trigger the native install prompt — no alert fallback
