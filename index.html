@@ -115,6 +115,12 @@
             </div>
         </div>
         <select id="theme-picker" aria-label="Choose a theme"></select>
+        <button id="reset-btn" aria-label="Reset" title="Reset" class="bg-slate-700 hover:bg-slate-600 text-slate-200 w-11 h-11 rounded-full transition-colors flex items-center justify-center border border-slate-600 shrink-0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
+                <polyline points="21 3 21 8 16 8"></polyline>
+            </svg>
+        </button>
     </div>
 
     <!-- Math Question Area -->
@@ -148,19 +154,6 @@
                 <p class="text-lg font-bold text-white">💥 Ouch! You hit a wall!</p>
                 <p id="wall-banner-text" class="text-sm text-rose-100 mt-1">Walls are on, so bumping a wall sends you back to the start. Tip: turn Walls off — then the chick follows the paths and walls can't hurt you.</p>
             </div>
-        </div>
-    </div>
-
-    <!-- Controls -->
-    <div class="w-full max-w-md mt-4 flex flex-col items-center gap-3 transition-all">
-        <div class="flex items-center gap-4 sm:gap-6">
-            <button id="reset-btn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 border border-slate-600">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
-                    <polyline points="21 3 21 8 16 8"></polyline>
-                </svg>
-                Reset
-            </button>
         </div>
     </div>
 
