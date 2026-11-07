@@ -42,8 +42,10 @@
         .glow-text { text-shadow: 0 0 10px var(--accent-glow, rgba(168, 85, 247, 0.8)); }
         .toggle-checkbox:checked { right: 0; border-color: var(--accent, #a855f7); }
         .toggle-checkbox:checked + .toggle-label { background-color: var(--accent, #a855f7); }
-        .theme-btn { padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; color: #cbd5e1; background: transparent; border: 1px solid transparent; cursor: pointer; }
-        .theme-btn[aria-pressed="true"] { background-color: var(--accent, #a855f7); color: #fff; }
+        /* Theme dropdown: a native <select> keeps it compact on a phone
+         * and opens the system's own picker. */
+        #theme-picker { max-width: 136px; padding: 3px 6px; border-radius: 9999px; font-size: 12px; font-weight: 600; color: #e2e8f0; background-color: #1e293b; border: 1px solid #334155; cursor: pointer; }
+        #theme-picker:focus { outline: 2px solid var(--accent, #a855f7); outline-offset: 1px; }
         
         @keyframes bounce {
             0%, 100% { transform: translateY(0); }
@@ -155,7 +157,7 @@
         </div>
         <div class="flex items-center gap-2">
             <span class="text-xs font-medium text-slate-400">Theme</span>
-            <div id="theme-picker" class="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-full border border-slate-700" role="group" aria-label="Choose a theme"></div>
+            <select id="theme-picker" aria-label="Choose a theme"></select>
         </div>
     </div>
 
@@ -372,6 +374,28 @@
                     ['#a16207', '#713f12'], // brown
                     ['#65a30d', '#3f6212']  // leaf green
                 ]
+            },
+            summer: {
+                label: 'Summer', icon: '☀️',
+                player: '🦀', playerName: 'crab',
+                target: 'watermelon', targetIcon: '🍉', targetShape: 'watermelon',
+                title: 'Summer Maze',
+                prompt: 'Find the watermelon with the answer!',
+                winTitle: 'SPLASH!', winMsg: 'You found the right watermelon!',
+                winEmoji: '🍉☀️', nextLabel: 'Next Watermelon Hunt',
+                pwaHint: 'Play full screen for Summer!',
+                accent: '#fbbf24', accentDark: '#b45309',
+                bg: '#0c2237', wall: '#075985',
+                trail: 'rgba(251, 191, 36, 0.25)',
+                glow: 'rgba(251, 191, 36, 0.8)', soft: 'rgba(251, 191, 36, 0.2)',
+                eggPalette: [
+                    ['#f87171', '#dc2626'], // watermelon red
+                    ['#4ade80', '#16a34a'], // rind green
+                    ['#facc15', '#ca8a04'], // sunny yellow
+                    ['#38bdf8', '#0284c7'], // ocean blue
+                    ['#fb923c', '#ea580c'], // sunset orange
+                    ['#f472b6', '#db2777']  // flamingo pink
+                ]
             }
         };
         let currentTheme = 'easter';
@@ -428,27 +452,29 @@
             // iOS shows Share instructions instead of the seasonal hint.
             if (installBtn.style.display !== 'none') pwaInstallHint.textContent = t.pwaHint;
             canvas.setAttribute('aria-label', `Maze. Drag the ${t.playerName} to the ${t.target} with the right answer, or use arrow keys or WASD to move one square at a time.`);
-            document.querySelectorAll('#theme-picker .theme-btn').forEach(btn => {
-                btn.setAttribute('aria-pressed', btn.dataset.theme === id ? 'true' : 'false');
-            });
+            themePickerEl.value = id;
             // If the wall notice is up, reword it for the new theme.
             if (!wallBanner.classList.contains('hidden')) showWallBanner();
             pickEggColors();
             if (grid && grid.length) draw();
         }
 
-        // Theme picker buttons, built from THEMES so a new theme is one
-        // entry away.
+        // Theme picker dropdown, built from THEMES so a new theme is one
+        // entry away. A native <select> keeps it compact on a phone and
+        // opens the system's own picker. Blur after choosing, like the
+        // Walls toggle: otherwise focus stays on the select and the
+        // keydown handler ignores arrow keys until the user clicks
+        // elsewhere.
         Object.entries(THEMES).forEach(([id, t]) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'theme-btn';
-            btn.dataset.theme = id;
-            btn.setAttribute('aria-pressed', id === currentTheme ? 'true' : 'false');
-            btn.setAttribute('aria-label', t.label + ' theme');
-            btn.textContent = t.icon + ' ' + t.label;
-            btn.onclick = () => applyTheme(id);
-            themePickerEl.appendChild(btn);
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = t.icon + ' ' + t.label;
+            themePickerEl.appendChild(opt);
+        });
+        themePickerEl.value = currentTheme;
+        themePickerEl.addEventListener('change', () => {
+            applyTheme(themePickerEl.value);
+            themePickerEl.blur();
         });
 
         function generateProblem() {
@@ -710,6 +736,22 @@
                 ctx.beginPath();
                 ctx.ellipse(centerX + w * 0.2, centerY - h * 0.34, w * 0.12, h * 0.06, -0.5, 0, Math.PI * 2);
                 ctx.fill();
+            } else if (shape === 'watermelon') {
+                // Watermelon: round slice, pale flesh and seeds. The
+                // gradient underneath is the round's random colour pair.
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, w * 0.36, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.35)';
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, w * 0.27, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                [[-0.12, -0.08], [0.12, -0.08], [0, 0.08], [-0.14, 0.12], [0.14, 0.12]].forEach(([dx, dy]) => {
+                    ctx.beginPath();
+                    ctx.ellipse(centerX + dx * w, centerY + dy * h, 2.5, 4, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                });
             } else {
                 // Egg: the original bezier shape with a zig-zag band.
                 const rx = w * 0.35, ry = h * 0.45;

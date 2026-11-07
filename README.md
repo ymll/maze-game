@@ -21,9 +21,10 @@ Play it live at https://ymll.github.io/maze-game
   crosses a wall, the chick stops and waits instead of walking the long
   way round. Arrow keys never cross a wall either way — with Walls
   off they just stop at the wall.
-- Themes: pick Easter, Christmas, Halloween or Fall from the Theme row.
-  Each theme changes the player, the target (egg / gift / pumpkin /
-  apple), the colours and the wording. Your choice is saved in your
+- Themes: pick Easter, Christmas, Halloween, Fall or Summer from the
+  Theme dropdown. Each theme changes the player, the target (egg / gift /
+  pumpkin / apple / watermelon), the colours and the wording. Your choice
+  is saved in your
   browser. The target colours are randomised every round in every theme.
 - Each level you complete is +10 points and the maze gets bigger.
 - Levels 1–2 are addition. From level 3, subtraction is mixed in.
