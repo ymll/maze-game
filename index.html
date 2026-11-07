@@ -115,6 +115,7 @@
             </div>
         </div>
         <select id="theme-picker" aria-label="Choose a theme"></select>
+        <button id="info-btn" aria-label="How to play" title="How to play" class="bg-slate-700 hover:bg-slate-600 text-slate-200 w-11 h-11 rounded-full transition-colors flex items-center justify-center border border-slate-600 shrink-0 text-xl font-bold">ⓘ</button>
         <button id="reset-btn" aria-label="Reset" title="Reset" class="bg-slate-700 hover:bg-slate-600 text-slate-200 w-11 h-11 rounded-full transition-colors flex items-center justify-center border border-slate-600 shrink-0">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
@@ -127,7 +128,6 @@
     <div class="w-full max-w-md bg-slate-800/80 rounded-2xl p-3 mb-3 border border-slate-700 text-center shadow-lg">
         <p id="target-prompt" class="text-slate-400 text-xs uppercase tracking-widest mb-1">Find the Easter Egg with the answer!</p>
         <div id="math-question" class="text-3xl font-bold text-white tracking-tight">? + ? = ?</div>
-        <p id="howto-text" class="text-slate-400 text-xs mt-2">Drag the chick 🐥 through the maze — start by touching the chick. Or use arrow keys / WASD to hop one square at a time. Walls on: touching a wall sends you back to the start. Walls off: the chick follows the paths, and walls can't hurt you.</p>
     </div>
 
     <!-- Canvas Container -->
@@ -154,6 +154,20 @@
                 <p class="text-lg font-bold text-white">💥 Ouch! You hit a wall!</p>
                 <p id="wall-banner-text" class="text-sm text-rose-100 mt-1">Walls are on, so bumping a wall sends you back to the start. Tip: turn Walls off — then the chick follows the paths and walls can't hurt you.</p>
             </div>
+        </div>
+    </div>
+
+    <!-- How-to modal: hidden by default; opens from the ⓘ button, and
+         automatically on a first visit. Click anywhere to close.
+         It uses flex + hidden, so the critical-CSS fallback must keep
+         .hidden AFTER .flex (see the <style> block) or it would show on
+         load when the Tailwind CDN is unreachable. -->
+    <div id="howto-modal" class="fixed inset-0 flex items-center justify-center hidden z-50" role="dialog" aria-modal="true" aria-labelledby="howto-title">
+        <div class="absolute inset-0 bg-slate-950/70"></div>
+        <div class="relative mx-4 max-w-sm rounded-3xl bg-slate-800 border border-slate-700 p-6 shadow-2xl">
+            <h2 id="howto-title" class="text-2xl font-bold text-white mb-3">How to play</h2>
+            <p id="howto-modal-text" class="text-slate-200 text-sm leading-relaxed">Drag the chick 🐥 through the maze — start by touching the chick. Or use arrow keys / WASD to hop one square at a time.</p>
+            <p class="text-slate-400 text-xs mt-4 text-center">Tap anywhere to close</p>
         </div>
     </div>
 
@@ -204,7 +218,9 @@
         const pwaInstallHint = document.getElementById('pwa-install-hint');
         const scoreDisplay = document.getElementById('score-display');
         const targetPromptEl = document.getElementById('target-prompt');
-        const howtoEl = document.getElementById('howto-text');
+        const howtoEl = document.getElementById('howto-modal-text');
+        const howtoModal = document.getElementById('howto-modal');
+        const infoBtn = document.getElementById('info-btn');
         const overlayEmojiEl = document.getElementById('overlay-emoji');
         const overlayTitleEl = document.getElementById('overlay-title');
         const overlayMsgEl = document.getElementById('overlay-msg');
@@ -445,7 +461,7 @@
             COLORS.path = t.bg;
             COLORS.trail = t.trail;
             targetPromptEl.textContent = t.prompt;
-            howtoEl.textContent = `Drag the ${t.playerName} ${t.player} through the maze — start by touching the ${t.playerName}. Or use arrow keys / WASD to hop one square at a time. Walls on: touching a wall sends you back to the start. Walls off: the ${t.playerName} follows the paths, and walls can't hurt you.`;
+            howtoEl.textContent = `Drag the ${t.playerName} ${t.player} through the maze — start by touching the ${t.playerName}. Or use arrow keys / WASD to hop one square at a time. Walls are off to start with, so the ${t.playerName} follows the paths and walls can't hurt you. Turn Walls on for a challenge: touching a wall sends you back to the start. The buttons at the top change the theme, turn Walls on or off, and start over.`;
             overlayEmojiEl.textContent = t.winEmoji;
             overlayTitleEl.textContent = t.winTitle;
             overlayMsgEl.textContent = t.winMsg;
@@ -482,6 +498,23 @@
             applyTheme(themePickerEl.value);
             themePickerEl.blur();
         });
+
+        // Instructions modal: hidden by default, opens from the ⓘ button,
+        // and shows automatically on a first visit. Clicking anywhere on
+        // it (backdrop or panel) or pressing Escape closes it, and a
+        // guarded localStorage flag records that it was seen so it never
+        // auto-shows again.
+        function showHowto() { howtoModal.classList.remove('hidden'); }
+        function hideHowto() {
+            howtoModal.classList.add('hidden');
+            try { localStorage.setItem('mazeSeenInstructions', '1'); } catch (e) {}
+        }
+        infoBtn.onclick = () => { showHowto(); infoBtn.blur(); };
+        howtoModal.addEventListener('click', hideHowto);
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideHowto(); });
+        let seenInstructions = false;
+        try { seenInstructions = localStorage.getItem('mazeSeenInstructions') === '1'; } catch (e) {}
+        window.addEventListener('load', () => { if (!seenInstructions) showHowto(); });
 
         function generateProblem() {
             // Levels 1–2: addition only. Level 3+: addition and subtraction
@@ -1122,6 +1155,8 @@
             // Don't steal keys from buttons / the toggle / the overlay button.
             const tag = (e.target && e.target.tagName) || '';
             if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            // Don't move the chick while the instructions modal is open.
+            if (!howtoModal.classList.contains('hidden')) return;
             const key = e.key;
             const steps = {
                 ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1],
