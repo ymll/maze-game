@@ -796,13 +796,23 @@
             return false;
         }
 
+        // The wrong-egg message used to flash for only 1.5s — too fast to
+        // read. It now stays for 4.5s, like the wall-hit banner, and hides
+        // early when the player starts playing again (drag or arrow key).
+        let messageTimer;
         function showMessage(text, ms) {
             messageBox.textContent = text;
             messageBox.style.opacity = '1';
-            setTimeout(() => {
+            clearTimeout(messageTimer);
+            messageTimer = setTimeout(() => {
                 messageBox.textContent = "Oops! Watch out for the walls! 🧱";
                 messageBox.style.opacity = '0';
-            }, ms || 1500);
+            }, ms || 4500);
+        }
+        function hideMessage() {
+            clearTimeout(messageTimer);
+            messageBox.textContent = "Oops! Watch out for the walls! 🧱";
+            messageBox.style.opacity = '0';
         }
 
         // Wall-hit feedback. A first-time player can't tell why the run
@@ -1087,6 +1097,7 @@
             const step = steps[key];
             if (!step) return;
             e.preventDefault();
+            hideMessage();
             tryStep(step[0], step[1]);
         });
 
@@ -1100,6 +1111,7 @@
             if (Math.hypot(x - last.x, y - last.y) < cellSize) {
                 followWaypoints = [];
                 hideWallBanner();
+                hideMessage();
                 isTracing = true;
                 requestAnimationFrame(draw);
             }
@@ -1116,6 +1128,7 @@
             if (Math.hypot(x - last.x, y - last.y) < cellSize) {
                 followWaypoints = [];
                 hideWallBanner();
+                hideMessage();
                 isTracing = true;
                 requestAnimationFrame(draw);
             }
