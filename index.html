@@ -1127,7 +1127,10 @@
         window.addEventListener('touchend', () => isTracing = false);
 
         // Turning Walls back on mid-drag stops any queued corridor walk.
-        collisionToggle.addEventListener('change', () => { followWaypoints = []; });
+        // Blur the toggle after a mouse click: otherwise focus stays on the
+        // INPUT and the keydown handler ignores arrow keys until the user
+        // clicks elsewhere. The typing guard above is untouched.
+        collisionToggle.addEventListener('change', () => { followWaypoints = []; collisionToggle.blur(); });
 
         // Read-only handle for automated tests (used by the harness that
         // checks path-following, themes and the wall banner). Harmless in
