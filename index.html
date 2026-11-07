@@ -21,7 +21,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            background-color: #0f172a;
+            background-color: var(--bg, #0f172a);
             color: #f8fafc;
             touch-action: none;
             overflow: hidden;
@@ -33,15 +33,17 @@
             display: block;
             margin: 0 auto;
             border-radius: 16px;
-            box-shadow: 0 0 40px rgba(168, 85, 247, 0.2);
+            box-shadow: 0 0 40px var(--accent-soft, rgba(168, 85, 247, 0.2));
             max-width: 100%;
         }
         canvas:focus-visible { outline: 3px solid #a855f7; outline-offset: 2px; }
         .ui-overlay { pointer-events: none; }
         .ui-overlay button, .ui-overlay .pointer-auto { pointer-events: auto; }
-        .glow-text { text-shadow: 0 0 10px rgba(168, 85, 247, 0.8); }
-        .toggle-checkbox:checked { right: 0; border-color: #a855f7; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #a855f7; }
+        .glow-text { text-shadow: 0 0 10px var(--accent-glow, rgba(168, 85, 247, 0.8)); }
+        .toggle-checkbox:checked { right: 0; border-color: var(--accent, #a855f7); }
+        .toggle-checkbox:checked + .toggle-label { background-color: var(--accent, #a855f7); }
+        .theme-btn { padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; color: #cbd5e1; background: transparent; border: 1px solid transparent; cursor: pointer; }
+        .theme-btn[aria-pressed="true"] { background-color: var(--accent, #a855f7); color: #fff; }
         
         @keyframes bounce {
             0%, 100% { transform: translateY(0); }
@@ -89,7 +91,7 @@
     <!-- Game Header -->
     <div class="w-full max-w-md flex justify-between items-center mb-2 px-2">
         <div>
-            <h1 class="text-xl font-bold glow-text text-purple-400">Level <span id="level-display">1</span></h1>
+            <h1 id="level-heading" class="text-xl font-bold glow-text text-purple-400">Level <span id="level-display">1</span></h1>
         </div>
         <div class="text-right flex flex-col items-end">
             <div class="text-[10px] font-semibold text-slate-400 uppercase">Score: <span id="score-display">0</span></div>
@@ -100,7 +102,7 @@
 
     <!-- Math Question Area -->
     <div class="w-full max-w-md bg-slate-800/80 rounded-2xl p-3 mb-3 border border-slate-700 text-center shadow-lg">
-        <p class="text-slate-400 text-xs uppercase tracking-widest mb-1">Find the Easter Egg with the answer!</p>
+        <p id="target-prompt" class="text-slate-400 text-xs uppercase tracking-widest mb-1">Find the Easter Egg with the answer!</p>
         <div id="math-question" class="text-3xl font-bold text-white tracking-tight">? + ? = ?</div>
         <p id="howto-text" class="text-slate-400 text-xs mt-2">Drag the chick 🐥 through the maze — start by touching the chick. Or use arrow keys / WASD to hop one square at a time. Walls on: touching a wall sends you back to the start. Walls off: the chick follows the paths, and walls can't hurt you.</p>
     </div>
@@ -112,7 +114,7 @@
         <!-- Win Overlay -->
         <div id="overlay" class="absolute inset-0 flex items-center justify-center bg-slate-900/90 rounded-2xl hidden ui-overlay z-10">
             <div class="text-center p-8">
-                <div class="text-6xl mb-4">🐰🍭</div>
+                <div id="overlay-emoji" class="text-6xl mb-4">🐰🍭</div>
                 <h2 id="overlay-title" class="text-4xl font-bold mb-2 text-white">YUMMY!</h2>
                 <p id="overlay-msg" class="text-purple-300 font-bold mb-6">You found the right egg!</p>
                 <button id="next-btn" class="pointer-auto bg-purple-500 hover:bg-purple-400 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all active:scale-95">
@@ -141,12 +143,16 @@
                 Reset
             </button>
         </div>
+        <div class="flex items-center gap-2">
+            <span class="text-xs font-medium text-slate-400">Theme</span>
+            <div id="theme-picker" class="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-full border border-slate-700" role="group" aria-label="Choose a theme"></div>
+        </div>
     </div>
 
     <!-- PWA Install Footer -->
     <div id="pwa-footer" class="fixed bottom-0 left-0 right-0 bg-purple-600 p-4 transform translate-y-full flex items-center justify-between gap-4 z-50 shadow-2xl rounded-t-3xl transition-transform duration-500">
         <div class="flex items-center gap-3">
-            <span class="text-2xl">🥚</span>
+            <span id="pwa-icon" class="text-2xl">🥚</span>
             <div>
                 <p class="text-white font-bold text-sm">Add to Home Screen</p>
                 <p id="pwa-install-hint" class="text-purple-100 text-[10px]">Play full screen for Easter!</p>
@@ -189,6 +195,14 @@
         const controlsContainer = document.getElementById('controls-container');
         const pwaInstallHint = document.getElementById('pwa-install-hint');
         const scoreDisplay = document.getElementById('score-display');
+        const targetPromptEl = document.getElementById('target-prompt');
+        const howtoEl = document.getElementById('howto-text');
+        const overlayEmojiEl = document.getElementById('overlay-emoji');
+        const overlayTitleEl = document.getElementById('overlay-title');
+        const overlayMsgEl = document.getElementById('overlay-msg');
+        const levelHeadingEl = document.getElementById('level-heading');
+        const pwaIconEl = document.getElementById('pwa-icon');
+        const themePickerEl = document.getElementById('theme-picker');
 
         let level = 1;
         // "Best" = furthest level reached. Stored as level+1 after a win
@@ -252,33 +266,175 @@
 
         closePwaFooter.onclick = hidePwaFooter;
 
-        // Egg colours. The correct and wrong eggs are coloured from the same
-        // palette, randomly assigned each round, so colour can never leak
-        // the answer (previously correct was always pink, wrong always blue).
-        const EGG_PALETTE = [
-            ['#f472b6', '#db2777'], // pink
-            ['#60a5fa', '#2563eb'], // blue
-            ['#4ade80', '#16a34a'], // green
-            ['#fb923c', '#ea580c'], // orange
-            ['#c084fc', '#9333ea'], // purple
-            ['#facc15', '#ca8a04']  // yellow
-        ];
-        let correctEggColors = EGG_PALETTE[0];
-        let wrongEggColors = EGG_PALETTE[1];
+        // Themes. Easter is the default and looks exactly as it did before.
+        // Every theme changes the player, the target shape, the accent
+        // palette and the wording — but the target colours are still picked
+        // randomly from the theme's own palette each round, so colour can
+        // never leak the answer.
+        const THEMES = {
+            easter: {
+                label: 'Easter', icon: '🐣',
+                player: '🐥', playerName: 'chick',
+                target: 'egg', targetIcon: '🥚', targetShape: 'egg',
+                title: 'Easter Chick Maze',
+                prompt: 'Find the Easter Egg with the answer!',
+                winTitle: 'YUMMY!', winMsg: 'You found the right egg!',
+                winEmoji: '🐰🍭', nextLabel: 'Next Egg Hunt',
+                pwaHint: 'Play full screen for Easter!',
+                accent: '#a855f7', accentDark: '#9333ea',
+                bg: '#0f172a', wall: '#475569',
+                trail: 'rgba(168, 85, 247, 0.2)',
+                glow: 'rgba(168, 85, 247, 0.8)', soft: 'rgba(168, 85, 247, 0.2)',
+                eggPalette: [
+                    ['#f472b6', '#db2777'], // pink
+                    ['#60a5fa', '#2563eb'], // blue
+                    ['#4ade80', '#16a34a'], // green
+                    ['#fb923c', '#ea580c'], // orange
+                    ['#c084fc', '#9333ea'], // purple
+                    ['#facc15', '#ca8a04']  // yellow
+                ]
+            },
+            christmas: {
+                label: 'Christmas', icon: '🎄',
+                player: '🎅', playerName: 'Santa',
+                target: 'gift', targetIcon: '🎁', targetShape: 'gift',
+                title: 'Christmas Maze',
+                prompt: 'Find the gift with the answer!',
+                winTitle: 'HO HO HO!', winMsg: 'You found the right gift!',
+                winEmoji: '🎅🎄', nextLabel: 'Next Gift Hunt',
+                pwaHint: 'Play full screen for Christmas!',
+                accent: '#ef4444', accentDark: '#b91c1c',
+                bg: '#0d1f16', wall: '#4d7c0f',
+                trail: 'rgba(239, 68, 68, 0.25)',
+                glow: 'rgba(239, 68, 68, 0.8)', soft: 'rgba(239, 68, 68, 0.2)',
+                eggPalette: [
+                    ['#f87171', '#dc2626'], // red
+                    ['#4ade80', '#16a34a'], // green
+                    ['#facc15', '#ca8a04'], // gold
+                    ['#60a5fa', '#2563eb'], // blue
+                    ['#e2e8f0', '#94a3b8'], // snow white
+                    ['#f472b6', '#db2777']  // pink
+                ]
+            },
+            halloween: {
+                label: 'Halloween', icon: '🎃',
+                player: '👻', playerName: 'ghost',
+                target: 'pumpkin', targetIcon: '🎃', targetShape: 'pumpkin',
+                title: 'Halloween Maze',
+                prompt: 'Find the pumpkin with the answer!',
+                winTitle: 'SPOOKY!', winMsg: 'You found the right pumpkin!',
+                winEmoji: '🎃👻', nextLabel: 'Next Pumpkin Hunt',
+                pwaHint: 'Play full screen for Halloween!',
+                accent: '#f97316', accentDark: '#c2410c',
+                bg: '#1c0f08', wall: '#92400e',
+                trail: 'rgba(249, 115, 22, 0.25)',
+                glow: 'rgba(249, 115, 22, 0.8)', soft: 'rgba(249, 115, 22, 0.2)',
+                eggPalette: [
+                    ['#fb923c', '#ea580c'], // orange
+                    ['#c084fc', '#9333ea'], // purple
+                    ['#a3e635', '#65a30d'], // lime
+                    ['#facc15', '#ca8a04'], // yellow
+                    ['#4ade80', '#16a34a'], // green
+                    ['#f87171', '#dc2626']  // red
+                ]
+            },
+            fall: {
+                label: 'Fall', icon: '🍂',
+                player: '🦊', playerName: 'fox',
+                target: 'apple', targetIcon: '🍎', targetShape: 'apple',
+                title: 'Fall Maze',
+                prompt: 'Find the apple with the answer!',
+                winTitle: 'TASTY!', winMsg: 'You found the right apple!',
+                winEmoji: '🦊🍂', nextLabel: 'Next Apple Hunt',
+                pwaHint: 'Play full screen for Fall!',
+                accent: '#d97706', accentDark: '#b45309',
+                bg: '#1f130a', wall: '#78350f',
+                trail: 'rgba(217, 119, 6, 0.25)',
+                glow: 'rgba(217, 119, 6, 0.8)', soft: 'rgba(217, 119, 6, 0.2)',
+                eggPalette: [
+                    ['#fb923c', '#ea580c'], // orange
+                    ['#f87171', '#dc2626'], // red
+                    ['#f59e0b', '#b45309'], // amber
+                    ['#facc15', '#ca8a04'], // gold
+                    ['#a16207', '#713f12'], // brown
+                    ['#65a30d', '#3f6212']  // leaf green
+                ]
+            }
+        };
+        let currentTheme = 'easter';
+        try {
+            const savedTheme = localStorage.getItem('mazeTheme');
+            if (savedTheme && THEMES[savedTheme]) currentTheme = savedTheme;
+        } catch (e) { currentTheme = 'easter'; }
+        let correctEggColors = THEMES[currentTheme].eggPalette[0];
+        let wrongEggColors = THEMES[currentTheme].eggPalette[1];
+
+        function theme() { return THEMES[currentTheme]; }
 
         function pickEggColors() {
-            const i = Math.floor(Math.random() * EGG_PALETTE.length);
-            let j = Math.floor(Math.random() * EGG_PALETTE.length);
-            while (j === i) j = Math.floor(Math.random() * EGG_PALETTE.length);
+            const palette = theme().eggPalette;
+            const i = Math.floor(Math.random() * palette.length);
+            let j = Math.floor(Math.random() * palette.length);
+            while (j === i) j = Math.floor(Math.random() * palette.length);
             // Randomly assign the two colours so neither colour means "right".
             if (Math.random() > 0.5) {
-                correctEggColors = EGG_PALETTE[i];
-                wrongEggColors = EGG_PALETTE[j];
+                correctEggColors = palette[i];
+                wrongEggColors = palette[j];
             } else {
-                correctEggColors = EGG_PALETTE[j];
-                wrongEggColors = EGG_PALETTE[i];
+                correctEggColors = palette[j];
+                wrongEggColors = palette[i];
             }
         }
+
+        function applyTheme(id) {
+            if (!THEMES[id]) id = 'easter';
+            currentTheme = id;
+            const t = THEMES[id];
+            try { localStorage.setItem('mazeTheme', id); } catch (e) {}
+            document.title = t.title;
+            const root = document.documentElement;
+            root.style.setProperty('--accent', t.accent);
+            root.style.setProperty('--accent-dark', t.accentDark);
+            root.style.setProperty('--accent-glow', t.glow);
+            root.style.setProperty('--accent-soft', t.soft);
+            root.style.setProperty('--bg', t.bg);
+            COLORS.wall = t.wall;
+            COLORS.path = t.bg;
+            COLORS.trail = t.trail;
+            targetPromptEl.textContent = t.prompt;
+            howtoEl.textContent = `Drag the ${t.playerName} ${t.player} through the maze — start by touching the ${t.playerName}. Or use arrow keys / WASD to hop one square at a time. Walls on: touching a wall sends you back to the start. Walls off: the ${t.playerName} follows the paths, and walls can't hurt you.`;
+            overlayEmojiEl.textContent = t.winEmoji;
+            overlayTitleEl.textContent = t.winTitle;
+            overlayMsgEl.textContent = t.winMsg;
+            nextBtn.textContent = t.nextLabel;
+            levelHeadingEl.style.color = t.accent;
+            nextBtn.style.backgroundColor = t.accent;
+            pwaFooter.style.backgroundColor = t.accent;
+            installBtn.style.color = t.accentDark;
+            pwaIconEl.textContent = t.targetIcon;
+            // iOS shows Share instructions instead of the seasonal hint.
+            if (installBtn.style.display !== 'none') pwaInstallHint.textContent = t.pwaHint;
+            canvas.setAttribute('aria-label', `Maze. Drag the ${t.playerName} to the ${t.target} with the right answer, or use arrow keys or WASD to move one square at a time.`);
+            document.querySelectorAll('#theme-picker .theme-btn').forEach(btn => {
+                btn.setAttribute('aria-pressed', btn.dataset.theme === id ? 'true' : 'false');
+            });
+            pickEggColors();
+            if (grid && grid.length) draw();
+        }
+
+        // Theme picker buttons, built from THEMES so a new theme is one
+        // entry away.
+        Object.entries(THEMES).forEach(([id, t]) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'theme-btn';
+            btn.dataset.theme = id;
+            btn.setAttribute('aria-pressed', id === currentTheme ? 'true' : 'false');
+            btn.setAttribute('aria-label', t.label + ' theme');
+            btn.textContent = t.icon + ' ' + t.label;
+            btn.onclick = () => applyTheme(id);
+            themePickerEl.appendChild(btn);
+        });
 
         function generateProblem() {
             // Levels 1–2: addition only. Level 3+: addition and subtraction
@@ -321,6 +477,9 @@
             // deliberately no fixed "correct" or "wrong" colour here.
             trail: 'rgba(168, 85, 247, 0.2)'
         };
+
+        // Apply the saved theme (or Easter) before the first game starts.
+        applyTheme(currentTheme);
 
         class Cell {
             constructor(r, c) {
@@ -478,35 +637,80 @@
             else if (dy === -1) { a.walls[2] = false; b.walls[0] = false; }
         }
 
-        function drawEgg(x, y, w, h, colors, label) {
+        // The target (egg / gift / pumpkin / apple, depending on theme),
+        // drawn in the theme's shape and coloured from the round's random
+        // pair. The answer number sits on top in every theme.
+        function drawTarget(x, y, w, h, colors, label, shape) {
             const centerX = x + w/2;
             const centerY = y + h/2;
-            const rx = w * 0.35;
-            const ry = h * 0.45;
 
-            // Egg shape using bezier
             ctx.save();
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY - ry);
-            ctx.bezierCurveTo(centerX + rx, centerY - ry, centerX + rx, centerY + ry, centerX, centerY + ry);
-            ctx.bezierCurveTo(centerX - rx, centerY + ry, centerX - rx, centerY - ry, centerX, centerY - ry);
-            
-            const grad = ctx.createRadialGradient(centerX - rx/3, centerY - ry/3, 2, centerX, centerY, ry);
+            const grad = ctx.createRadialGradient(centerX - w/6, centerY - h/6, 2, centerX, centerY, h/2);
             grad.addColorStop(0, colors[0]);
             grad.addColorStop(1, colors[1]);
             ctx.fillStyle = grad;
-            ctx.fill();
-            
-            // Decorative zig-zag
-            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(centerX - rx * 0.7, centerY);
-            ctx.lineTo(centerX - rx * 0.3, centerY + 5);
-            ctx.lineTo(centerX, centerY);
-            ctx.lineTo(centerX + rx * 0.3, centerY + 5);
-            ctx.lineTo(centerX + rx * 0.7, centerY);
-            ctx.stroke();
+
+            if (shape === 'gift') {
+                // Present: box, ribbon cross and a bow.
+                const bw = w * 0.72, bh = h * 0.62;
+                const bx = centerX - bw/2, by = centerY - bh/2 + h * 0.08;
+                ctx.fillRect(bx, by, bw, bh);
+                ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                ctx.fillRect(centerX - 2, by, 4, bh);
+                ctx.fillRect(bx, centerY - 2, bw, 4);
+                ctx.beginPath();
+                ctx.arc(centerX - 6, by - 2, 5, 0, Math.PI * 2);
+                ctx.arc(centerX + 6, by - 2, 5, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (shape === 'pumpkin') {
+                // Pumpkin: round body, a ridge and a stem.
+                ctx.beginPath();
+                ctx.ellipse(centerX, centerY, w * 0.36, h * 0.42, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(centerX, centerY, w * 0.2, h * 0.42, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.strokeStyle = '#78350f';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY - h * 0.42);
+                ctx.lineTo(centerX + 3, centerY - h * 0.52);
+                ctx.stroke();
+            } else if (shape === 'apple') {
+                // Apple: round body, stem and a leaf.
+                ctx.beginPath();
+                ctx.arc(centerX, centerY + h * 0.03, w * 0.34, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#78350f';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY - h * 0.3);
+                ctx.lineTo(centerX + 2, centerY - h * 0.42);
+                ctx.stroke();
+                ctx.fillStyle = '#4ade80';
+                ctx.beginPath();
+                ctx.ellipse(centerX + w * 0.2, centerY - h * 0.34, w * 0.12, h * 0.06, -0.5, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                // Egg: the original bezier shape with a zig-zag band.
+                const rx = w * 0.35, ry = h * 0.45;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY - ry);
+                ctx.bezierCurveTo(centerX + rx, centerY - ry, centerX + rx, centerY + ry, centerX, centerY + ry);
+                ctx.bezierCurveTo(centerX - rx, centerY + ry, centerX - rx, centerY - ry, centerX, centerY - ry);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(centerX - rx * 0.7, centerY);
+                ctx.lineTo(centerX - rx * 0.3, centerY + 5);
+                ctx.lineTo(centerX, centerY);
+                ctx.lineTo(centerX + rx * 0.3, centerY + 5);
+                ctx.lineTo(centerX + rx * 0.7, centerY);
+                ctx.stroke();
+            }
 
             ctx.fillStyle = "white";
             ctx.font = `bold ${cellSize/2.2}px 'Fredoka', sans-serif`;
@@ -526,8 +730,8 @@
             ctx.fillStyle = COLORS.path;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            drawEgg(correctCell.c * cellSize, correctCell.r * cellSize, cellSize, cellSize, correctEggColors, currentProblem.a);
-            drawEgg(wrongCell.c * cellSize, wrongCell.r * cellSize, cellSize, cellSize, wrongEggColors, currentProblem.wrong);
+            drawTarget(correctCell.c * cellSize, correctCell.r * cellSize, cellSize, cellSize, correctEggColors, currentProblem.a, theme().targetShape);
+            drawTarget(wrongCell.c * cellSize, wrongCell.r * cellSize, cellSize, cellSize, wrongEggColors, currentProblem.wrong, theme().targetShape);
 
             for (let r = 0; r < mazeHeight; r++) {
                 for (let c = 0; c < mazeWidth; c++) grid[r][c].draw();
@@ -548,9 +752,9 @@
             ctx.font = `${cellSize * 0.7}px serif`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            // Chick wobble
+            // Player wobble
             const wobble = isTracing ? Math.sin(Date.now()/50) * 3 : 0;
-            ctx.fillText("🐥", last.x, last.y + wobble);
+            ctx.fillText(theme().player, last.x, last.y + wobble);
             ctx.restore();
             
             // Keep the frame loop alive while the chick is still walking a
@@ -595,7 +799,7 @@
         function checkReachedEgg(col, row) {
             if (col === wrongCell.c && row === wrongCell.r) {
                 isTracing = false;
-                showMessage("Oops! That egg is empty! 🥚");
+                showMessage(`Oops! That ${theme().target} is empty! ${theme().targetIcon}`);
                 resetPlayerToStart();
                 draw();
                 return true;
@@ -900,7 +1104,10 @@
                 return { playerCell, cellSize, mazeWidth, mazeHeight, correctCell, wrongCell, startCell, followWaypoints, level, score, gameActive };
             },
             findPath, canStep,
-            get grid() { return grid; }
+            get grid() { return grid; },
+            get theme() { return currentTheme; },
+            get correctEggColors() { return correctEggColors; },
+            get wrongEggColors() { return wrongEggColors; }
         };
 
         nextBtn.onclick = () => { level++; initGame(); };

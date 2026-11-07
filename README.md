@@ -15,7 +15,14 @@ Play it live at https://ymll.github.io/maze-game
   to move one square at a time — walls block you, just like when dragging.
 - Reach the wrong egg and you go back to the start. Hit a wall (with the
   Walls toggle on) and you go back to the start too. Turn Walls off for
-  an easier game.
+  an easier game: touching a wall no longer sends you back, and the chick
+  follows the corridors toward your finger instead of cutting through
+  walls. Arrow keys never cross a wall either way — with Walls off they
+  just stop at the wall.
+- Themes: pick Easter, Christmas, Halloween or Fall from the Theme row.
+  Each theme changes the player, the target (egg / gift / pumpkin /
+  apple), the colours and the wording. Your choice is saved in your
+  browser. The target colours are randomised every round in every theme.
 - Each level you complete is +10 points and the maze gets bigger.
 - Levels 1–2 are addition. From level 3, subtraction is mixed in.
 - Your furthest level is saved in your browser (localStorage), so you can
