@@ -47,6 +47,10 @@
          * and is at least 44px tall so it is easy to tap (16px text also
          * stops iOS zooming in on focus). */
         #theme-picker { max-width: 180px; min-height: 44px; padding: 10px 12px; border-radius: 9999px; font-size: 16px; font-weight: 600; color: #e2e8f0; background-color: #1e293b; border: 1px solid #334155; cursor: pointer; }
+        /* Toolbar icon buttons (Reset, info, light/dark): 44px from plain
+         * CSS, not just Tailwind utilities, so they stay tappable even
+         * when the Tailwind CDN is unreachable. */
+        .icon-btn { min-width: 44px; min-height: 44px; }
         #theme-picker:focus { outline: 2px solid var(--accent, #a855f7); outline-offset: 1px; }
 
         /* Light mode: the page, panels and text go light; the maze keeps
@@ -141,9 +145,9 @@
             </div>
         </div>
         <select id="theme-picker" aria-label="Choose a theme"></select>
-        <button id="info-btn" aria-label="How to play" title="How to play" class="bg-slate-700 hover:bg-slate-600 text-slate-200 w-11 h-11 rounded-full transition-colors flex items-center justify-center border border-slate-600 shrink-0 text-xl font-bold">ⓘ</button>
-        <button id="mode-btn" aria-label="Switch to light mode" title="Switch to light mode" class="bg-slate-700 hover:bg-slate-600 text-slate-200 w-11 h-11 rounded-full transition-colors flex items-center justify-center border border-slate-600 shrink-0 text-xl">☀️</button>
-        <button id="reset-btn" aria-label="Reset" title="Reset" class="bg-slate-700 hover:bg-slate-600 text-slate-200 w-11 h-11 rounded-full transition-colors flex items-center justify-center border border-slate-600 shrink-0">
+        <button id="info-btn" aria-label="How to play" title="How to play" class="icon-btn bg-slate-700 hover:bg-slate-600 text-slate-200 w-11 h-11 rounded-full transition-colors flex items-center justify-center border border-slate-600 shrink-0 text-xl font-bold">ⓘ</button>
+        <button id="mode-btn" aria-label="Switch to light mode" title="Switch to light mode" class="icon-btn bg-slate-700 hover:bg-slate-600 text-slate-200 w-11 h-11 rounded-full transition-colors flex items-center justify-center border border-slate-600 shrink-0 text-xl">☀️</button>
+        <button id="reset-btn" aria-label="Reset" title="Reset" class="icon-btn bg-slate-700 hover:bg-slate-600 text-slate-200 w-11 h-11 rounded-full transition-colors flex items-center justify-center border border-slate-600 shrink-0">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
                 <polyline points="21 3 21 8 16 8"></polyline>
