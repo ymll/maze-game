@@ -48,6 +48,32 @@
          * stops iOS zooming in on focus). */
         #theme-picker { max-width: 180px; min-height: 44px; padding: 10px 12px; border-radius: 9999px; font-size: 16px; font-weight: 600; color: #e2e8f0; background-color: #1e293b; border: 1px solid #334155; cursor: pointer; }
         #theme-picker:focus { outline: 2px solid var(--accent, #a855f7); outline-offset: 1px; }
+
+        /* Light mode: the page, panels and text go light; the maze keeps
+         * the theme's accent and walls (see applyMode for the canvas).
+         * `html.light` outranks Tailwind's own utilities, so these win
+         * when the class is on. The PWA footer, win button, toast and
+         * wall banner sit on coloured backgrounds, so their white text
+         * stays white. */
+        html.light body { background-color: #f1f5f9; color: #0f172a; }
+        html.light .bg-slate-800 { background-color: #ffffff; }
+        html.light .bg-slate-800\/80 { background-color: rgba(255, 255, 255, 0.92); }
+        html.light .bg-slate-800\/50 { background-color: rgba(255, 255, 255, 0.75); }
+        html.light .bg-slate-900\/90 { background-color: rgba(255, 255, 255, 0.94); }
+        html.light .bg-slate-700 { background-color: #e2e8f0; }
+        html.light .hover\:bg-slate-600:hover { background-color: #cbd5e1; }
+        html.light .bg-slate-600 { background-color: #cbd5e1; }
+        html.light .border-slate-700, html.light .border-slate-600 { border-color: #cbd5e1; }
+        html.light .text-white { color: #0f172a; }
+        html.light .text-slate-400 { color: #475569; }
+        html.light .text-slate-300 { color: #334155; }
+        html.light .text-slate-200 { color: #334155; }
+        html.light .text-purple-300 { color: #7e22ce; }
+        html.light #theme-picker { background-color: #ffffff; color: #0f172a; border-color: #cbd5e1; }
+        html.light #pwa-footer .text-white,
+        html.light #next-btn, html.light #message-box,
+        html.light #wall-banner .text-white, html.light #wall-banner .text-rose-100 { color: #ffffff; }
+        html.light #pwa-footer .text-purple-100 { color: #ede9fe; }
         
         @keyframes bounce {
             0%, 100% { transform: translateY(0); }
@@ -116,6 +142,7 @@
         </div>
         <select id="theme-picker" aria-label="Choose a theme"></select>
         <button id="info-btn" aria-label="How to play" title="How to play" class="bg-slate-700 hover:bg-slate-600 text-slate-200 w-11 h-11 rounded-full transition-colors flex items-center justify-center border border-slate-600 shrink-0 text-xl font-bold">ⓘ</button>
+        <button id="mode-btn" aria-label="Switch to light mode" title="Switch to light mode" class="bg-slate-700 hover:bg-slate-600 text-slate-200 w-11 h-11 rounded-full transition-colors flex items-center justify-center border border-slate-600 shrink-0 text-xl">☀️</button>
         <button id="reset-btn" aria-label="Reset" title="Reset" class="bg-slate-700 hover:bg-slate-600 text-slate-200 w-11 h-11 rounded-full transition-colors flex items-center justify-center border border-slate-600 shrink-0">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
@@ -227,6 +254,8 @@
         const levelHeadingEl = document.getElementById('level-heading');
         const pwaIconEl = document.getElementById('pwa-icon');
         const themePickerEl = document.getElementById('theme-picker');
+        const modeBtn = document.getElementById('mode-btn');
+        const themeColorMeta = document.querySelector('meta[name="theme-color"]');
         const wallBanner = document.getElementById('wall-banner');
         const wallBannerText = document.getElementById('wall-banner-text');
         let wallBannerTimer; // declared up here: applyTheme may show the banner before the helpers below run
@@ -458,10 +487,10 @@
             root.style.setProperty('--accent-soft', t.soft);
             root.style.setProperty('--bg', t.bg);
             COLORS.wall = t.wall;
-            COLORS.path = t.bg;
+            COLORS.path = isLight ? LIGHT_PATH : t.bg;
             COLORS.trail = t.trail;
             targetPromptEl.textContent = t.prompt;
-            howtoEl.textContent = `Drag the ${t.playerName} ${t.player} through the maze — start by touching the ${t.playerName}. Or use arrow keys / WASD to hop one square at a time. Walls are off to start with, so the ${t.playerName} follows the paths and walls can't hurt you. Turn Walls on for a challenge: touching a wall sends you back to the start. The buttons at the top change the theme, turn Walls on or off, and start over.`;
+            howtoEl.textContent = `Drag the ${t.playerName} ${t.player} through the maze — start by touching the ${t.playerName}. Or use arrow keys / WASD to hop one square at a time. Walls are off to start with, so the ${t.playerName} follows the paths and walls can't hurt you. Turn Walls on for a challenge: touching a wall sends you back to the start. The buttons at the top change the theme, turn Walls on or off, switch light and dark, and start over.`;
             overlayEmojiEl.textContent = t.winEmoji;
             overlayTitleEl.textContent = t.winTitle;
             overlayMsgEl.textContent = t.winMsg;
@@ -498,6 +527,32 @@
             applyTheme(themePickerEl.value);
             themePickerEl.blur();
         });
+
+        // Light / dark mode. Dark is the look the game has always had;
+        // light is a genuinely light page (light background and surfaces,
+        // dark text). On a first visit the device decides
+        // (prefers-color-scheme); after that the saved choice wins.
+        // The maze background goes light too, while the theme's walls,
+        // accents and egg colours stay — every theme stays readable.
+        const LIGHT_PATH = '#f1f5f9';
+        let isLight = false;
+        try {
+            const savedMode = localStorage.getItem('mazeColorMode');
+            if (savedMode) isLight = savedMode === 'light';
+            else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) isLight = true;
+        } catch (e) { isLight = false; }
+        function applyMode() {
+            document.documentElement.classList.toggle('light', isLight);
+            modeBtn.textContent = isLight ? '🌙' : '☀️';
+            const label = isLight ? 'Switch to dark mode' : 'Switch to light mode';
+            modeBtn.setAttribute('aria-label', label);
+            modeBtn.title = label;
+            try { localStorage.setItem('mazeColorMode', isLight ? 'light' : 'dark'); } catch (e) {}
+            if (themeColorMeta) themeColorMeta.setAttribute('content', isLight ? LIGHT_PATH : theme().bg);
+            COLORS.path = isLight ? LIGHT_PATH : theme().bg;
+            if (grid && grid.length) draw();
+        }
+        modeBtn.onclick = () => { isLight = !isLight; applyMode(); modeBtn.blur(); };
 
         // Instructions modal: hidden by default, opens from the ⓘ button,
         // and shows automatically on a first visit. Clicking anywhere on
@@ -558,8 +613,10 @@
             trail: 'rgba(168, 85, 247, 0.2)'
         };
 
-        // Apply the saved theme (or Easter) before the first game starts.
+        // Apply the saved theme (or Easter) before the first game starts,
+        // then the saved (or device) light/dark mode on top of it.
         applyTheme(currentTheme);
+        applyMode();
 
         class Cell {
             constructor(r, c) {
